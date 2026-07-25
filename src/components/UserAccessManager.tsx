@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppUser, UserRole, MarketingType } from '../types';
+import { AppUser, UserRole, MarketingType, TabType, ALL_TAB_ITEMS, DEFAULT_ROLE_TABS, getUserAllowedTabs } from '../types';
 import {
   ShieldCheck,
   UserPlus,
@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   UserCheck,
+  Check,
 } from 'lucide-react';
 
 interface UserAccessManagerProps {
@@ -52,6 +53,27 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
   const [agencyName, setAgencyName] = useState('');
   const [status, setStatus] = useState<'Aktif' | 'Nonaktif'>('Aktif');
   const [notes, setNotes] = useState('');
+  const [allowedTabs, setAllowedTabs] = useState<TabType[]>(DEFAULT_ROLE_TABS['Sales Marketing']);
+
+  // Admin Security Check
+  if (currentUser?.role !== 'Super Admin') {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-rose-200 shadow-md text-center max-w-md mx-auto space-y-4 my-12 animate-in fade-in">
+        <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div>
+          <h2 className="text-lg font-black text-slate-900">Akses Terbatas (Admin Only)</h2>
+          <p className="text-xs text-slate-600 leading-relaxed mt-1">
+            Menu <strong>Kelola Akses User ERP</strong> hanya dapat diakses oleh pengguna dengan role <strong>Super Admin</strong>.
+          </p>
+        </div>
+        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 font-medium">
+          🔒 Anda login sebagai: <strong>{currentUser?.name || 'User'}</strong> ({currentUser?.role})
+        </div>
+      </div>
+    );
+  }
 
   // Stats
   const totalUsers = users.length;
@@ -87,6 +109,23 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
     setAgencyName('');
     setStatus('Aktif');
     setNotes('');
+    setAllowedTabs(DEFAULT_ROLE_TABS['Sales Marketing']);
+  };
+
+  const handleRoleChange = (newRole: UserRole) => {
+    setRole(newRole);
+    const defaults = DEFAULT_ROLE_TABS[newRole] || DEFAULT_ROLE_TABS['Sales Marketing'];
+    setAllowedTabs(defaults);
+  };
+
+  const handleToggleTab = (tabId: TabType) => {
+    if (tabId === 'user_access' && role !== 'Super Admin') return;
+
+    if (allowedTabs.includes(tabId)) {
+      setAllowedTabs(allowedTabs.filter((t) => t !== tabId));
+    } else {
+      setAllowedTabs([...allowedTabs, tabId]);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -107,6 +146,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
     setAgencyName(u.agencyName || '');
     setStatus(u.status);
     setNotes(u.notes || '');
+    setAllowedTabs(getUserAllowedTabs(u));
   };
 
   const handleToggleStatus = (u: AppUser) => {
@@ -121,6 +161,11 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
     e.preventDefault();
     if (!username || !name) return;
 
+    // Filter allowed tabs to ensure user_access is only kept if Super Admin
+    const finalAllowedTabs = role === 'Super Admin' 
+      ? allowedTabs 
+      : allowedTabs.filter((t) => t !== 'user_access');
+
     if (editingUser) {
       const updated: AppUser = {
         ...editingUser,
@@ -134,6 +179,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
         agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         status,
         notes,
+        allowedTabs: finalAllowedTabs,
       };
       onUpdateUser(updated);
       setEditingUser(null);
@@ -150,6 +196,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
         agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         status,
         notes,
+        allowedTabs: finalAllowedTabs,
       };
       onAddUser(newUser);
       setShowAddModal(false);
@@ -299,9 +346,8 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                 <tr className="bg-slate-100/80 text-slate-600 uppercase text-[10px] font-extrabold border-b border-slate-200">
                   <th className="p-3.5">Akun Pengguna</th>
                   <th className="p-3.5">Username Login</th>
-                  <th className="p-3.5">Password</th>
                   <th className="p-3.5">Role Otorisasi ERP</th>
-                  <th className="p-3.5">Tipe Akses</th>
+                  <th className="p-3.5">Hak Akses Menu ({ALL_TAB_ITEMS.length})</th>
                   <th className="p-3.5">Status Akses</th>
                   <th className="p-3.5 text-right">Kelola Akses</th>
                 </tr>
@@ -309,6 +355,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                 {filteredUsers.map((u) => {
                   const isSelf = currentUser?.id === u.id;
+                  const userTabs = getUserAllowedTabs(u);
                   return (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       {/* Name & Contact */}
@@ -336,11 +383,6 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                         @{u.username}
                       </td>
 
-                      {/* Password */}
-                      <td className="p-3.5 font-mono text-slate-500">
-                        {u.password ? '••••••••' : <span className="text-slate-300">Belum di-set</span>}
-                      </td>
-
                       {/* Role */}
                       <td className="p-3.5">
                         <span
@@ -356,15 +398,37 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                         >
                           {u.role}
                         </span>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          {u.marketingType === 'Inhouse'
+                            ? 'Inhouse Marketing'
+                            : u.marketingType === 'Agent'
+                            ? `Broker (${u.agencyName || 'Eksternal'})`
+                            : 'Staff ERP'}
+                        </div>
                       </td>
 
-                      {/* Tipe Akses */}
-                      <td className="p-3.5 text-slate-600 font-medium">
-                        {u.marketingType === 'Inhouse'
-                          ? 'Inhouse Marketing'
-                          : u.marketingType === 'Agent'
-                          ? `Broker (${u.agencyName || 'Eksternal'})`
-                          : 'Staff ERP'}
+                      {/* Allowed Menu Badges */}
+                      <td className="p-3.5">
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {userTabs.map((tabId) => {
+                            const tabInfo = ALL_TAB_ITEMS.find((t) => t.id === tabId);
+                            return (
+                              <span
+                                key={tabId}
+                                className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
+                                  tabId === 'user_access'
+                                    ? 'bg-purple-100 border-purple-300 text-purple-900'
+                                    : 'bg-slate-100 border-slate-200 text-slate-700'
+                                }`}
+                              >
+                                {tabInfo?.label.replace(' Overview', '').replace(' (SPR)', '')}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 font-semibold">
+                          Total {userTabs.length} dari {ALL_TAB_ITEMS.length} Menu Diizinkan
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -381,12 +445,12 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                           {u.status === 'Aktif' ? (
                             <>
                               <Unlock className="w-3 h-3 text-emerald-600" />
-                              <span>Aktif (Dapat Login)</span>
+                              <span>Aktif</span>
                             </>
                           ) : (
                             <>
                               <Lock className="w-3 h-3 text-rose-600" />
-                              <span>Nonaktif (Diblokir)</span>
+                              <span>Diblokir</span>
                             </>
                           )}
                         </button>
@@ -567,7 +631,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                   <label className="font-bold text-slate-700 block mb-1">Role Akses ERP</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                     className="w-full p-2.5 bg-amber-50/60 border border-amber-200 rounded-xl font-extrabold text-amber-950"
                   >
                     <option value="Super Admin">Super Admin (Akses Penuh)</option>
@@ -592,6 +656,93 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
                     <option value="Aktif">Aktif (Dapat Login)</option>
                     <option value="Nonaktif">Nonaktif (Akses Diblokir)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Menu Access Permissions Selector */}
+              <div className="space-y-2 border-t border-slate-200 pt-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-500" />
+                    <span>Pilihan Hak Akses Menu ERP ({allowedTabs.length} Diizinkan) *</span>
+                  </label>
+                  <div className="flex gap-1.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const all = ALL_TAB_ITEMS.map((i) => i.id).filter(
+                          (id) => id !== 'user_access' || role === 'Super Admin'
+                        );
+                        setAllowedTabs(all);
+                      }}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded transition-colors"
+                    >
+                      Centang Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllowedTabs(['dashboard'])}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded transition-colors"
+                    >
+                      Dashboard Saja
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaults = DEFAULT_ROLE_TABS[role] || DEFAULT_ROLE_TABS['Sales Marketing'];
+                        setAllowedTabs(role === 'Super Admin' ? defaults : defaults.filter((t) => t !== 'user_access'));
+                      }}
+                      className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded transition-colors"
+                    >
+                      Preset Role
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Centang menu apa saja yang disetujui oleh admin untuk dapat diakses oleh user ini saat login.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-56 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+                  {ALL_TAB_ITEMS.map((item) => {
+                    const isChecked = allowedTabs.includes(item.id);
+                    const isDisabled = item.superAdminOnly && role !== 'Super Admin';
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => !isDisabled && handleToggleTab(item.id)}
+                        className={`p-2 rounded-lg border text-left flex items-start gap-2 transition-all select-none ${
+                          isDisabled
+                            ? 'opacity-40 bg-slate-100 border-slate-200 cursor-not-allowed'
+                            : isChecked
+                            ? 'bg-amber-50 border-amber-300 text-amber-950 font-bold shadow-xs cursor-pointer'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 cursor-pointer'
+                        }`}
+                      >
+                        <div className="mt-0.5 flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isDisabled}
+                            readOnly
+                            className="rounded text-amber-500 focus:ring-amber-400 cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold leading-tight flex items-center justify-between gap-1">
+                            <span className="truncate">{item.label}</span>
+                            {item.superAdminOnly && (
+                              <span className="px-1 py-0.2 bg-purple-100 text-purple-900 text-[8px] font-black rounded flex-shrink-0">
+                                Admin
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-normal leading-tight mt-0.5">
+                            {item.description}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

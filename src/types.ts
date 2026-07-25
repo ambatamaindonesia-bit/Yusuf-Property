@@ -2,6 +2,19 @@ export type UserRole = 'Super Admin' | 'Manager Marketing' | 'Finance & Kasir' |
 
 export type MarketingType = 'Inhouse' | 'Agent' | '-';
 
+export type TabType =
+  | 'dashboard'
+  | 'projects'
+  | 'siteplan'
+  | 'sales'
+  | 'user_data'
+  | 'employees'
+  | 'user_access'
+  | 'kpr_calc'
+  | 'construction'
+  | 'finance'
+  | 'reports';
+
 export interface AppUser {
   id: string;
   username: string;
@@ -15,6 +28,65 @@ export interface AppUser {
   status: 'Aktif' | 'Nonaktif';
   commissionRatePercent?: number;
   notes?: string;
+  allowedTabs?: TabType[]; // Specific menu permissions set by admin
+}
+
+export const ALL_TAB_ITEMS: { id: TabType; label: string; description: string; superAdminOnly?: boolean }[] = [
+  { id: 'dashboard', label: 'Dashboard Overview', description: 'Metrik umum, ringkasan stok, dan omset' },
+  { id: 'projects', label: 'Proyek Perumahan', description: 'Kelola data proyek & master lokasi' },
+  { id: 'siteplan', label: 'Site Plan & Stok Unit', description: 'Peta denah visual & ketersediaan kavling' },
+  { id: 'sales', label: 'Penjualan & KPR (SPR)', description: 'Pemesanan rumah & status pemberkasan KPR' },
+  { id: 'user_data', label: 'Data User & Berkas KPR', description: 'Profil konsumen, KTP, KK, & syarat KPR' },
+  { id: 'employees', label: 'Karyawan & Marketing', description: 'Data sales inhouse & broker agen' },
+  { id: 'user_access', label: 'Kelola Akses User ERP', description: 'Hak akses & manajemen akun (Khusus Admin)', superAdminOnly: true },
+  { id: 'kpr_calc', label: 'Kalkulator KPR', description: 'Simulasi angsuran & bunga bank' },
+  { id: 'construction', label: 'Konstruksi & Mandor', description: 'Progress fisik bangunan & SPK mandor' },
+  { id: 'finance', label: 'Keuangan & Cashflow', description: 'Jurnal kas, cash in/out & saldo' },
+  { id: 'reports', label: 'Laporan ERP Developer', description: 'Laporan keuangan, omset & stok unit' },
+];
+
+export const DEFAULT_ROLE_TABS: Record<UserRole, TabType[]> = {
+  'Super Admin': [
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'employees', 'user_access', 'kpr_calc', 'construction', 'finance', 'reports'
+  ],
+  'Manager Marketing': [
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'employees', 'kpr_calc', 'reports'
+  ],
+  'Finance & Kasir': [
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'finance', 'reports', 'kpr_calc'
+  ],
+  'Legal & Sertifikat': [
+    'dashboard', 'projects', 'sales', 'user_data', 'reports'
+  ],
+  'Sales Marketing': [
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'kpr_calc'
+  ],
+};
+
+export function getUserAllowedTabs(user: AppUser | null): TabType[] {
+  if (!user) return ['dashboard'];
+
+  let tabs: TabType[] = [];
+  if (user.allowedTabs && user.allowedTabs.length > 0) {
+    tabs = [...user.allowedTabs];
+  } else {
+    tabs = DEFAULT_ROLE_TABS[user.role] || DEFAULT_ROLE_TABS['Sales Marketing'];
+  }
+
+  // Ensure user_access is strictly removed for non-Super Admin
+  if (user.role !== 'Super Admin') {
+    tabs = tabs.filter((t) => t !== 'user_access');
+  }
+
+  // Fallback if empty
+  if (tabs.length === 0) {
+    tabs = ['dashboard'];
+  }
+
+  return tabs;
 }
 
 export type UnitStatus = 'available' | 'booking' | 'sold' | 'construction' | 'reserved';

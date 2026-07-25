@@ -12,6 +12,10 @@ export const INITIAL_USERS: AppUser[] = [
     phone: '081200001111',
     status: 'Aktif',
     notes: 'Akses penuh seluruh sistem ERP Developer Perumahan',
+    allowedTabs: [
+      'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+      'employees', 'user_access', 'kpr_calc', 'construction', 'finance', 'reports'
+    ],
   },
   {
     id: 'usr-2',
@@ -26,6 +30,7 @@ export const INITIAL_USERS: AppUser[] = [
     status: 'Aktif',
     commissionRatePercent: 2.5,
     notes: 'Tim Marketing Inhouse Pusat',
+    allowedTabs: ['dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'kpr_calc'],
   },
   {
     id: 'usr-3',
@@ -40,6 +45,7 @@ export const INITIAL_USERS: AppUser[] = [
     status: 'Aktif',
     commissionRatePercent: 3.0,
     notes: 'Agent Broker Eksternal',
+    allowedTabs: ['dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'kpr_calc'],
   },
   {
     id: 'usr-4',
@@ -52,6 +58,7 @@ export const INITIAL_USERS: AppUser[] = [
     phone: '081399887766',
     status: 'Aktif',
     notes: 'Verifikasi keuangan & pencairan KPR',
+    allowedTabs: ['dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'finance', 'reports', 'kpr_calc'],
   },
 ];
 

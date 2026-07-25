@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppUser, TabType, getUserAllowedTabs } from '../types';
 import {
   LayoutDashboard,
   Building,
@@ -12,27 +13,13 @@ import {
   ShieldCheck,
   Tag,
   CheckCircle2,
-  Clock,
-  HelpCircle,
   FolderCheck,
 } from 'lucide-react';
-
-export type TabType =
-  | 'dashboard'
-  | 'projects'
-  | 'siteplan'
-  | 'sales'
-  | 'user_data'
-  | 'employees'
-  | 'user_access'
-  | 'kpr_calc'
-  | 'construction'
-  | 'finance'
-  | 'reports';
 
 interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  currentUser?: AppUser | null;
   unitsCount: {
     total: number;
     available: number;
@@ -44,9 +31,12 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
+  currentUser = null,
   unitsCount,
 }) => {
-  const navItems = [
+  const allowedTabs = getUserAllowedTabs(currentUser);
+
+  const allNavItems = [
     {
       id: 'dashboard' as TabType,
       label: 'Dashboard Overview',
@@ -119,6 +109,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: null,
     },
   ];
+
+  // Filter navigation strictly by allowed tabs
+  const navItems = allNavItems.filter((item) => allowedTabs.includes(item.id));
 
   return (
     <aside className="w-full lg:w-64 bg-slate-900 text-slate-300 flex-shrink-0 border-r border-slate-800 flex flex-col justify-between">

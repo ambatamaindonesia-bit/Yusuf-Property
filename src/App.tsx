@@ -9,6 +9,8 @@ import {
   KprStatus,
   AppUser,
   CustomerProfile,
+  getUserAllowedTabs,
+  TabType,
 } from './types';
 import {
   INITIAL_USERS,
@@ -20,7 +22,7 @@ import {
   INITIAL_CUSTOMERS,
 } from './data/initialData';
 import { Navbar } from './components/Navbar';
-import { Sidebar, TabType } from './components/Sidebar';
+import { Sidebar } from './components/Sidebar';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardOverview } from './components/DashboardOverview';
 import { ProjectsManager } from './components/ProjectsManager';
@@ -401,6 +403,14 @@ export default function App() {
     setFinances((prev) => [record, ...prev]);
   };
 
+  // Active tab permission auto-guard
+  const userAllowedTabs = getUserAllowedTabs(currentUser);
+  useEffect(() => {
+    if (currentUser && !userAllowedTabs.includes(activeTab)) {
+      setActiveTab(userAllowedTabs[0] || 'dashboard');
+    }
+  }, [currentUser, activeTab, userAllowedTabs]);
+
   // If not logged in, display Login Screen
   if (!currentUser) {
     return (
@@ -444,6 +454,7 @@ export default function App() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          currentUser={currentUser}
           unitsCount={{
             total: totalUnitsCount,
             available: availableUnitsCount,
