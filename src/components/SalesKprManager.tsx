@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SalesTransaction, KprStatus } from '../types';
+import { SalesTransaction, KprStatus, AppUser } from '../types';
 import { formatRupiah, getKprStatusLabel } from '../utils/formatters';
 import {
   FileCheck2,
@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Plus,
   ArrowRight,
+  UserCheck,
 } from 'lucide-react';
 
 interface SalesKprManagerProps {
@@ -25,6 +26,7 @@ interface SalesKprManagerProps {
   setSearchTerm: (term: string) => void;
   onOpenNewTransaction: () => void;
   onUpdateKprStatus: (saleId: string, nextStatus: KprStatus) => void;
+  currentUser?: AppUser | null;
 }
 
 export const SalesKprManager: React.FC<SalesKprManagerProps> = ({
@@ -33,17 +35,27 @@ export const SalesKprManager: React.FC<SalesKprManagerProps> = ({
   setSearchTerm,
   onOpenNewTransaction,
   onUpdateKprStatus,
+  currentUser,
 }) => {
   const [selectedSaleForPrint, setSelectedSaleForPrint] = useState<SalesTransaction | null>(null);
 
+  const isSalesMarketing = currentUser?.role === 'Sales Marketing';
+
   const filteredSales = sales.filter((s) => {
+    // If user is Sales Marketing, only show transactions belonging to them
+    if (isSalesMarketing && currentUser?.name) {
+      const agentMatch = s.marketingAgent.toLowerCase().includes(currentUser.name.toLowerCase());
+      if (!agentMatch) return false;
+    }
+
     const term = searchTerm.toLowerCase();
     return (
       s.sprNumber.toLowerCase().includes(term) ||
       s.unitCode.toLowerCase().includes(term) ||
       s.buyer.name.toLowerCase().includes(term) ||
       s.buyer.phone.toLowerCase().includes(term) ||
-      s.projectName.toLowerCase().includes(term)
+      s.projectName.toLowerCase().includes(term) ||
+      s.marketingAgent.toLowerCase().includes(term)
     );
   });
 
@@ -61,6 +73,15 @@ export const SalesKprManager: React.FC<SalesKprManagerProps> = ({
     <div className="space-y-6">
       
       {/* Header Bar */}
+      {isSalesMarketing && (
+        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-950 text-xs flex items-center gap-2.5 font-bold shadow-sm">
+          <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            Mode Akses Marketing: Menampilkan khusus data konsumen & transaksi SPR KPR milik Anda (<strong>{currentUser?.name}</strong>)
+          </span>
+        </div>
+      )}
+
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

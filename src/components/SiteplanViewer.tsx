@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HousingProject, Unit, UnitStatus } from '../types';
+import { HousingProject, Unit, UnitStatus, AppUser } from '../types';
 import { formatRupiah, getUnitStatusBadge } from '../utils/formatters';
 import {
   Grid3X3,
@@ -16,6 +16,7 @@ import {
   FileCheck2,
   Edit,
   Info,
+  Lock,
 } from 'lucide-react';
 
 interface SiteplanViewerProps {
@@ -27,6 +28,7 @@ interface SiteplanViewerProps {
   onOpenNewUnitModal: () => void;
   onUpdateUnitStatus: (unitId: string, newStatus: UnitStatus) => void;
   onUpdateUnit?: (updatedUnit: Unit) => void;
+  currentUser?: AppUser | null;
 }
 
 export const SiteplanViewer: React.FC<SiteplanViewerProps> = ({
@@ -38,7 +40,9 @@ export const SiteplanViewer: React.FC<SiteplanViewerProps> = ({
   onOpenNewUnitModal,
   onUpdateUnitStatus,
   onUpdateUnit,
+  currentUser,
 }) => {
+  const isSuperAdmin = currentUser?.role === 'Super Admin';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedBlock, setSelectedBlock] = useState<string>('all');
   const [detailModalUnit, setDetailModalUnit] = useState<Unit | null>(null);
@@ -95,11 +99,26 @@ export const SiteplanViewer: React.FC<SiteplanViewerProps> = ({
           </div>
 
           <button
-            onClick={onOpenNewUnitModal}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 self-start md:self-auto transition-all"
+            onClick={() => {
+              if (!isSuperAdmin) {
+                alert('Akses Ditolak: Penambahan kavling / stok unit baru hanya dapat dilakukan oleh Admin Utama (Super Admin)!');
+                return;
+              }
+              onOpenNewUnitModal();
+            }}
+            title={!isSuperAdmin ? 'Khusus Admin Utama' : 'Tambah Kavling Baru'}
+            className={`px-4 py-2 text-xs font-bold rounded-xl shadow-md flex items-center gap-2 self-start md:self-auto transition-all ${
+              isSuperAdmin
+                ? 'bg-slate-900 hover:bg-slate-800 text-white cursor-pointer'
+                : 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+            }`}
           >
-            <Plus className="w-4 h-4 text-amber-400" />
-            <span>Tambah Kavling Baru</span>
+            {isSuperAdmin ? (
+              <Plus className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+            )}
+            <span>Tambah Kavling Baru {!isSuperAdmin && '(Super Admin)'}</span>
           </button>
         </div>
 

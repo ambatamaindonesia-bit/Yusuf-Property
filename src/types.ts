@@ -261,6 +261,7 @@ export interface CustomerProfile {
   kprBankTarget: string;
   kprPlafonRequest: number;
   statusPemberkasan: 'Belum Lengkap' | 'Lengkap & Terverifikasi' | 'Dalam Proses Bank';
+  marketingAgent?: string; // Sales agent / marketing in charge
   documents: KprDocumentItem[];
   notes?: string;
   createdAt: string;

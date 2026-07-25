@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { HousingProject, Unit } from '../types';
-import { X, Plus, Building2 } from 'lucide-react';
+import { HousingProject, Unit, AppUser } from '../types';
+import { X, Plus, Building2, ShieldAlert } from 'lucide-react';
 
 interface NewUnitModalProps {
   projects: HousingProject[];
   onClose: () => void;
   onSubmit: (unit: Unit) => void;
+  currentUser?: AppUser | null;
 }
 
 export const NewUnitModal: React.FC<NewUnitModalProps> = ({
   projects,
   onClose,
   onSubmit,
+  currentUser,
 }) => {
+  const isSuperAdmin = !currentUser || currentUser.role === 'Super Admin';
   const [projectId, setProjectId] = useState<string>(projects[0]?.id || 'proj-1');
   const [block, setBlock] = useState('A');
   const [number, setNumber] = useState('06');
@@ -101,6 +104,18 @@ export const NewUnitModal: React.FC<NewUnitModalProps> = ({
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-5 space-y-4 text-xs text-slate-800 overflow-y-auto flex-1 custom-scrollbar">
+            
+            {!isSuperAdmin && (
+              <div className="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+                <div>
+                  <span className="font-extrabold block">Akses Khusus Admin Utama (Super Admin)</span>
+                  <span className="text-[11px] text-amber-800">
+                    Penambahan kavling / unit baru hanya dapat disimpan oleh Super Admin. Anda sedang login sebagai {currentUser?.role}.
+                  </span>
+                </div>
+              </div>
+            )}
             
             {/* Proyek Selector */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
@@ -322,7 +337,12 @@ export const NewUnitModal: React.FC<NewUnitModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                disabled={!isSuperAdmin}
+                className={`px-6 py-2.5 font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all ${
+                  isSuperAdmin
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95 cursor-pointer'
+                    : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                }`}
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>SIMPAN STOK KAVLING</span>

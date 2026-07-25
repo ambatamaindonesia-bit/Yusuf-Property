@@ -106,6 +106,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
   const [matStock, setMatStock] = useState<number | ''>(100);
   const [matUnitPrice, setMatUnitPrice] = useState<number | ''>(50000);
   const [matProjectName, setMatProjectName] = useState(projects[0]?.name || 'Grand Yusuf Residence');
+  const [matDate, setMatDate] = useState(new Date().toISOString().split('T')[0]);
 
   // --- Form States: Pemakaian Material ---
   const [useMaterialId, setUseMaterialId] = useState('');
@@ -177,6 +178,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
     setMatStock(100);
     setMatUnitPrice(50000);
     setMatProjectName(projects[0]?.name || 'Grand Yusuf Residence');
+    setMatDate(new Date().toISOString().split('T')[0]);
   };
 
   // Submit New Material
@@ -191,7 +193,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
       stockQty: Number(matStock),
       unitPrice: Number(matUnitPrice),
       projectName: matProjectName,
-      lastUpdated: new Date().toISOString().split('T')[0],
+      lastUpdated: matDate || new Date().toISOString().split('T')[0],
     };
 
     onAddMaterial(newMat);
@@ -696,6 +698,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
                     <th className="p-3.5">Proyek Perumahan</th>
                     <th className="p-3.5">Nama Bahan Material</th>
                     <th className="p-3.5">Satuan Ukuran</th>
+                    <th className="p-3.5">Tgl Pemasukan / Update</th>
                     <th className="p-3.5">Jumlah Stok Fisik</th>
                     <th className="p-3.5">Harga Satuan (Rp)</th>
                     <th className="p-3.5">Total Nilai Stok</th>
@@ -705,7 +708,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
                 <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                   {filteredMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
                         Tidak ada data material yang cocok. Silakan tambah material baru.
                       </td>
                     </tr>
@@ -721,6 +724,7 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
                               {mat.unitCategory}
                             </span>
                           </td>
+                          <td className="p-3.5 font-mono text-slate-600 font-semibold">{mat.lastUpdated}</td>
                           <td className="p-3.5">
                             <span
                               className={`px-2.5 py-1 rounded-lg font-black text-xs ${
@@ -1091,16 +1095,29 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Harga Satuan Estimasi (Rp) *</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={matUnitPrice}
-                  onChange={(e) => setMatUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Harga Satuan Estimasi (Rp) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={matUnitPrice}
+                    onChange={(e) => setMatUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tanggal Pemasukan Stock Barang *</label>
+                  <input
+                    type="date"
+                    value={matDate}
+                    onChange={(e) => setMatDate(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
@@ -1164,6 +1181,58 @@ export const ConstructionManager: React.FC<ConstructionManagerProps> = ({
                   ))}
                 </select>
               </div>
+
+              {/* Rincian Material Stok Gudang Display Card */}
+              {(() => {
+                const selectedMat = materials.find((m) => m.id === useMaterialId);
+                if (!selectedMat) return null;
+                const remainingQty = useQty !== '' ? selectedMat.stockQty - Number(useQty) : selectedMat.stockQty;
+                const isOver = useQty !== '' && Number(useQty) > selectedMat.stockQty;
+
+                return (
+                  <div className="p-3.5 bg-slate-950 text-slate-100 rounded-2xl border border-slate-800 space-y-2 shadow-inner">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">
+                        Rincian Detail Material Gudang
+                      </span>
+                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 font-extrabold text-[10px] rounded border border-amber-500/30">
+                        {selectedMat.unitCategory}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 text-[10px] block font-medium">Nama Barang:</span>
+                        <span className="font-black text-amber-300">{selectedMat.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] block font-medium">Satuan Ukuran:</span>
+                        <span className="font-extrabold text-white">{selectedMat.unitCategory}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] block font-medium">Stok Fisik Gudang:</span>
+                        <span className="font-black text-emerald-400">{selectedMat.stockQty} {selectedMat.unitCategory}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] block font-medium">Harga Satuan Est:</span>
+                        <span className="font-extrabold text-slate-200">{formatRupiah(selectedMat.unitPrice)}</span>
+                      </div>
+                      <div className="col-span-2 text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 flex justify-between">
+                        <span>Lokasi Proyek: <strong className="text-slate-200">{selectedMat.projectName}</strong></span>
+                        <span>Tgl Pemasukan Stock: <strong className="text-amber-400">{selectedMat.lastUpdated}</strong></span>
+                      </div>
+                    </div>
+
+                    {useQty !== '' && Number(useQty) > 0 && (
+                      <div className={`mt-2 p-2 rounded-xl text-xs font-bold flex items-center justify-between border ${
+                        !isOver ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700' : 'bg-rose-950/80 text-rose-300 border-rose-700'
+                      }`}>
+                        <span>Rencana Sisa Stok: {selectedMat.stockQty} - {useQty} = {remainingQty} {selectedMat.unitCategory}</span>
+                        {isOver && <span className="text-rose-300 font-black flex items-center gap-1">⚠️ Melebihi Stok Gudang</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Unit Selection from Housing Stock */}
               <div>

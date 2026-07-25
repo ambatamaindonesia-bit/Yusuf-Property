@@ -177,6 +177,9 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
   const [custNotes, setCustNotes] = useState('');
   const [custUtjPaid, setCustUtjPaid] = useState(3000000);
   const [custPaymentMethod, setCustPaymentMethod] = useState('Transfer Bank BTN');
+  const [custMarketingAgent, setCustMarketingAgent] = useState(currentUser?.name || 'Agus Marketing');
+
+  const isSalesMarketing = currentUser?.role === 'Sales Marketing';
 
   // New Payment Modal Form State
   const [payCategory, setPayCategory] = useState<'booking_fee' | 'dp_pembayaran' | 'pelunasan_unit' | 'pencairan_kpr'>('dp_pembayaran');
@@ -195,12 +198,19 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
 
   // Filtered Customer List
   const filteredCustomers = customers.filter((c) => {
+    // If user is Sales Marketing, filter to only show their assigned customers
+    if (isSalesMarketing && currentUser?.name) {
+      const isMine = !c.marketingAgent || c.marketingAgent.toLowerCase().includes(currentUser.name.toLowerCase());
+      if (!isMine) return false;
+    }
+
     const matchSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.nik.includes(searchTerm) ||
       c.unitCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm);
+      c.phone.includes(searchTerm) ||
+      (c.marketingAgent && c.marketingAgent.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (filterStatus === 'all') return matchSearch;
     return matchSearch && c.statusPemberkasan === filterStatus;
@@ -289,6 +299,7 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
     setCustUtjPaid(avail[0]?.bookingFee || 3000000);
     setCustPaymentMethod('Transfer Bank BTN');
     setCustNotes('');
+    setCustMarketingAgent(currentUser?.name || 'Agus Marketing');
     setShowAddModal(true);
   };
 
@@ -326,6 +337,7 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
       kprBankTarget: custKprBankTarget,
       kprPlafonRequest: custKprPlafonRequest,
       statusPemberkasan: 'Belum Lengkap',
+      marketingAgent: isSalesMarketing ? (currentUser?.name || 'Marketing') : custMarketingAgent,
       documents: createDefaultDocs(),
       notes: custNotes,
       createdAt: new Date().toISOString().split('T')[0],
@@ -661,6 +673,16 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Header Banner for Sales Marketing Role */}
+      {isSalesMarketing && (
+        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-950 text-xs flex items-center gap-2.5 font-bold shadow-sm">
+          <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            Mode Akses Marketing: Menampilkan khusus berkas & data konsumen KPR milik Anda (<strong>{currentUser?.name}</strong>)
+          </span>
+        </div>
+      )}
+
       {/* Top Banner Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

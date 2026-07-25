@@ -641,6 +641,7 @@ export default function App() {
               onOpenNewUnitModal={() => setShowNewUnitModal(true)}
               onUpdateUnitStatus={handleUpdateUnitStatus}
               onUpdateUnit={handleUpdateUnit}
+              currentUser={currentUser}
             />
           )}
 
@@ -651,6 +652,7 @@ export default function App() {
               setSearchTerm={setSearchTerm}
               onOpenNewTransaction={() => setShowNewTransactionModal(true)}
               onUpdateKprStatus={handleUpdateKprStatus}
+              currentUser={currentUser}
             />
           )}
 
