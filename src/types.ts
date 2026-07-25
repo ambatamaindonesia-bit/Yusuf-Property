@@ -9,6 +9,7 @@ export type TabType =
   | 'sales'
   | 'user_data'
   | 'employees'
+  | 'attendance'
   | 'user_access'
   | 'kpr_calc'
   | 'construction'
@@ -38,6 +39,7 @@ export const ALL_TAB_ITEMS: { id: TabType; label: string; description: string; s
   { id: 'sales', label: 'Penjualan & KPR (SPR)', description: 'Pemesanan rumah & status pemberkasan KPR' },
   { id: 'user_data', label: 'Data User & Berkas KPR', description: 'Profil konsumen, KTP, KK, & syarat KPR' },
   { id: 'employees', label: 'Karyawan & Marketing', description: 'Data sales inhouse & broker agen' },
+  { id: 'attendance', label: 'Absensi Karyawan', description: 'Absen masuk, absen pulang, lembur tanggal merah, & lokasi GPS' },
   { id: 'user_access', label: 'Kelola Akses User ERP', description: 'Hak akses & manajemen akun (Khusus Admin)', superAdminOnly: true },
   { id: 'kpr_calc', label: 'Kalkulator KPR', description: 'Simulasi angsuran & bunga bank' },
   { id: 'construction', label: 'Konstruksi & Mandor', description: 'Progress fisik bangunan & SPK mandor' },
@@ -48,21 +50,21 @@ export const ALL_TAB_ITEMS: { id: TabType; label: string; description: string; s
 export const DEFAULT_ROLE_TABS: Record<UserRole, TabType[]> = {
   'Super Admin': [
     'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
-    'employees', 'user_access', 'kpr_calc', 'construction', 'finance', 'reports'
+    'employees', 'attendance', 'user_access', 'kpr_calc', 'construction', 'finance', 'reports'
   ],
   'Manager Marketing': [
     'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
-    'employees', 'kpr_calc', 'reports'
+    'employees', 'attendance', 'kpr_calc', 'reports'
   ],
   'Finance & Kasir': [
     'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
-    'finance', 'reports', 'kpr_calc'
+    'employees', 'attendance', 'finance', 'reports', 'kpr_calc'
   ],
   'Legal & Sertifikat': [
-    'dashboard', 'projects', 'sales', 'user_data', 'reports'
+    'dashboard', 'projects', 'sales', 'user_data', 'attendance', 'reports'
   ],
   'Sales Marketing': [
-    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'kpr_calc'
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'attendance', 'kpr_calc'
   ],
 };
 
@@ -265,9 +267,83 @@ export interface CustomerProfile {
   updatedAt: string;
 }
 
+export interface MaterialItem {
+  id: string;
+  projectName: string;
+  name: string; // e.g., Semen Gresik 50kg, Besi Beton 10mm, Pasir Pasang
+  unitCategory: string; // e.g., Sak, Batang, M3, Truk, Dus, Btg, Roll
+  stockQty: number;
+  unitPrice: number;
+  lastUpdated: string;
+}
+
+export interface MaterialUsageHistory {
+  editedAt: string;
+  editedBy: string;
+  editReason: string;
+  prevQuantity: number;
+  prevUnitCode: string;
+  prevReasonUsage: string;
+}
+
+export interface MaterialUsageRecord {
+  id: string;
+  materialId: string;
+  materialName: string;
+  unitCategory: string;
+  projectName: string;
+  unitId: string; // Reference to stock unit
+  unitCode: string; // e.g. A-01 (Blok A No. 01)
+  quantityUsed: number;
+  usageDate: string;
+  personInCharge: string; // Mandor / Supervisor
+  reasonUsage: string; // Alasan & tujuan spesifik pemakaian
+  editHistory?: MaterialUsageHistory[];
+  createdAt: string;
+}
+
+export type ExecutorType = 'Inhouse' | 'Kontraktor';
+
+export interface ProgressDocumentation {
+  id: string;
+  projectName: string;
+  unitId: string; // Reference to stock unit
+  unitCode: string; // e.g., Blok A No. 01
+  executorType: ExecutorType; // Inhouse (Mandor Internal) / Kontraktor (Eksternal)
+  executorName: string; // Nama Mandor / Nama Kontraktor
+  inspectionDate: string; // Tanggal check
+  stageName: string; // e.g., Pondasi, Dinding, Atap, Finishing
+  progressPercent: number; // 0 - 100%
+  photoUrl?: string; // Image base64 data / URL
+  conditionNotes: string; // Catatan & kondisi hasil inspeksi mandor
+  checkedBy: string; // Inspektur / Mandor yang bertugas
+  createdAt: string;
+}
+
 export interface KprSimulationQuery {
   price: number;
   dpPercent: number;
   interestRateYear: number;
   tenorYears: number;
+}
+
+export type AttendanceType = 'Absen Masuk' | 'Absen Pulang' | 'Lembur (Tgl Merah)';
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeRole: string;
+  date: string; // YYYY-MM-DD
+  attendanceType: AttendanceType;
+  clockInTime: string; // e.g. "08:00:00"
+  clockOutTime?: string; // e.g. "17:00:00"
+  locationName: string; // e.g., "Grand Yusuf Residence (Proyek A)", "Kantor Pusat Developer", "Lokasi GPS Karyawan"
+  coordinates?: { lat: number; lng: number };
+  locationAddress?: string; // Lat/Long string or address
+  workDurationMinutes?: number; // Total calculated minutes worked
+  workDurationFormatted?: string; // e.g. "8 Jam 30 Menit"
+  isOvertimeHoliday?: boolean; // Lembur Tanggal Merah
+  notes?: string; // Keterangan tugas / lembur
+  createdAt: string;
 }

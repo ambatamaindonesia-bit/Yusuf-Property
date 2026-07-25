@@ -1,6 +1,6 @@
 {
   "name": "Yusuf Property - Sistem ERP Developer Perumahan",
   "description": "Sistem ERP lengkap untuk developer perumahan Yusuf Property meliputi Manajemen Proyek, Site Plan Interaktif, Stok Unit, Penjualan & KPR, Kontrol Konstruksi, dan Keuangan.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

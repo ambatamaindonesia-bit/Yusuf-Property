@@ -11,6 +11,10 @@ import {
   CustomerProfile,
   getUserAllowedTabs,
   TabType,
+  MaterialItem,
+  MaterialUsageRecord,
+  ProgressDocumentation,
+  AttendanceRecord,
 } from './types';
 import {
   INITIAL_USERS,
@@ -20,6 +24,10 @@ import {
   INITIAL_CONSTRUCTION,
   INITIAL_FINANCE,
   INITIAL_CUSTOMERS,
+  INITIAL_MATERIALS,
+  INITIAL_MATERIAL_USAGES,
+  INITIAL_PROGRESS_DOCS,
+  INITIAL_ATTENDANCE,
 } from './data/initialData';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -33,6 +41,7 @@ import { ConstructionManager } from './components/ConstructionManager';
 import { FinanceManager } from './components/FinanceManager';
 import { ReportsManager } from './components/ReportsManager';
 import { EmployeeMarketingManager } from './components/EmployeeMarketingManager';
+import { AttendanceManager } from './components/AttendanceManager';
 import { UserAccessManager } from './components/UserAccessManager';
 import { UserDataManager, DEFAULT_DOCUMENT_TEMPLATES } from './components/UserDataManager';
 import { NewTransactionModal } from './components/NewTransactionModal';
@@ -84,6 +93,26 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
   });
 
+  const [materials, setMaterials] = useState<MaterialItem[]>(() => {
+    const saved = localStorage.getItem('yp_erp_materials');
+    return saved ? JSON.parse(saved) : INITIAL_MATERIALS;
+  });
+
+  const [materialUsages, setMaterialUsages] = useState<MaterialUsageRecord[]>(() => {
+    const saved = localStorage.getItem('yp_erp_material_usages');
+    return saved ? JSON.parse(saved) : INITIAL_MATERIAL_USAGES;
+  });
+
+  const [progressDocs, setProgressDocs] = useState<ProgressDocumentation[]>(() => {
+    const saved = localStorage.getItem('yp_erp_progress_docs');
+    return saved ? JSON.parse(saved) : INITIAL_PROGRESS_DOCS;
+  });
+
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
+    const saved = localStorage.getItem('yp_erp_attendance');
+    return saved ? JSON.parse(saved) : INITIAL_ATTENDANCE;
+  });
+
   // Navigation & Search State
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -130,6 +159,114 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('yp_erp_customers', JSON.stringify(customers));
   }, [customers]);
+
+  useEffect(() => {
+    localStorage.setItem('yp_erp_materials', JSON.stringify(materials));
+  }, [materials]);
+
+  useEffect(() => {
+    localStorage.setItem('yp_erp_material_usages', JSON.stringify(materialUsages));
+  }, [materialUsages]);
+
+  useEffect(() => {
+    localStorage.setItem('yp_erp_progress_docs', JSON.stringify(progressDocs));
+  }, [progressDocs]);
+
+  useEffect(() => {
+    localStorage.setItem('yp_erp_attendance', JSON.stringify(attendanceRecords));
+  }, [attendanceRecords]);
+
+  // Attendance Handlers
+  const handleAddAttendance = (record: AttendanceRecord) => {
+    setAttendanceRecords((prev) => [record, ...prev]);
+  };
+
+  const handleUpdateAttendance = (record: AttendanceRecord) => {
+    setAttendanceRecords((prev) => prev.map((r) => (r.id === record.id ? record : r)));
+  };
+
+  const handleDeleteAttendance = (id: string) => {
+    setAttendanceRecords((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Construction & Material Handlers
+  const handleAddMaterial = (newMat: MaterialItem) => {
+    setMaterials((prev) => [newMat, ...prev]);
+  };
+
+  const handleUpdateMaterial = (updatedMat: MaterialItem) => {
+    setMaterials((prev) => prev.map((m) => (m.id === updatedMat.id ? updatedMat : m)));
+  };
+
+  const handleDeleteMaterial = (matId: string) => {
+    setMaterials((prev) => prev.filter((m) => m.id !== matId));
+  };
+
+  const handleAddMaterialUsage = (usageRecord: MaterialUsageRecord) => {
+    // 1. Add usage record
+    setMaterialUsages((prev) => [usageRecord, ...prev]);
+    // 2. Reduce stock quantity in materials
+    setMaterials((prev) =>
+      prev.map((m) => {
+        if (m.id === usageRecord.materialId) {
+          const newQty = Math.max(0, m.stockQty - usageRecord.quantityUsed);
+          return { ...m, stockQty: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
+        }
+        return m;
+      })
+    );
+  };
+
+  const handleUpdateMaterialUsage = (updatedRecord: MaterialUsageRecord, oldQty: number) => {
+    // 1. Update record with history
+    setMaterialUsages((prev) => prev.map((u) => (u.id === updatedRecord.id ? updatedRecord : u)));
+    // 2. Adjust stock quantity difference
+    const qtyDiff = updatedRecord.quantityUsed - oldQty; // e.g. from 10 to 12 -> diff +2 (reduce stock by 2)
+    setMaterials((prev) =>
+      prev.map((m) => {
+        if (m.id === updatedRecord.materialId) {
+          const newQty = Math.max(0, m.stockQty - qtyDiff);
+          return { ...m, stockQty: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
+        }
+        return m;
+      })
+    );
+  };
+
+  const handleDeleteMaterialUsage = (usageId: string) => {
+    const targetUsage = materialUsages.find((u) => u.id === usageId);
+    if (targetUsage) {
+      // Restore stock quantity
+      setMaterials((prev) =>
+        prev.map((m) => {
+          if (m.id === targetUsage.materialId) {
+            return { ...m, stockQty: m.stockQty + targetUsage.quantityUsed };
+          }
+          return m;
+        })
+      );
+    }
+    setMaterialUsages((prev) => prev.filter((u) => u.id !== usageId));
+  };
+
+  const handleAddProgressDoc = (newDoc: ProgressDocumentation) => {
+    setProgressDocs((prev) => [newDoc, ...prev]);
+    // Also update unit progressPercent in units if matching unitId exists
+    if (newDoc.unitId) {
+      setUnits((prev) =>
+        prev.map((u) => {
+          if (u.id === newDoc.unitId) {
+            return { ...u, progressPercent: newDoc.progressPercent };
+          }
+          return u;
+        })
+      );
+    }
+  };
+
+  const handleDeleteProgressDoc = (docId: string) => {
+    setProgressDocs((prev) => prev.filter((d) => d.id !== docId));
+  };
 
   // Customer Management Handlers
   const handleAddCustomer = (newCustomer: CustomerProfile) => {
@@ -543,6 +680,18 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'attendance' && (
+            <AttendanceManager
+              attendanceRecords={attendanceRecords}
+              users={users}
+              projects={projects}
+              currentUser={currentUser}
+              onAddAttendance={handleAddAttendance}
+              onUpdateAttendance={handleUpdateAttendance}
+              onDeleteAttendance={handleDeleteAttendance}
+            />
+          )}
+
           {activeTab === 'user_access' && (
             <UserAccessManager
               users={users}
@@ -558,7 +707,21 @@ export default function App() {
           {activeTab === 'construction' && (
             <ConstructionManager
               construction={construction}
+              projects={projects}
+              units={units}
+              materials={materials}
+              materialUsages={materialUsages}
+              progressDocs={progressDocs}
               onUpdateProgress={handleUpdateConstructionProgress}
+              onAddMaterial={handleAddMaterial}
+              onUpdateMaterial={handleUpdateMaterial}
+              onDeleteMaterial={handleDeleteMaterial}
+              onAddMaterialUsage={handleAddMaterialUsage}
+              onUpdateMaterialUsage={handleUpdateMaterialUsage}
+              onDeleteMaterialUsage={handleDeleteMaterialUsage}
+              onAddProgressDoc={handleAddProgressDoc}
+              onDeleteProgressDoc={handleDeleteProgressDoc}
+              currentUser={currentUser}
             />
           )}
 

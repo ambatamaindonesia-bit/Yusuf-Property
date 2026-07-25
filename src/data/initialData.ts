@@ -1,4 +1,4 @@
-import { HousingProject, Unit, SalesTransaction, ConstructionMilestone, FinancialRecord, AppUser, CustomerProfile } from '../types';
+import { HousingProject, Unit, SalesTransaction, ConstructionMilestone, FinancialRecord, AppUser, CustomerProfile, MaterialItem, MaterialUsageRecord, ProgressDocumentation, AttendanceRecord } from '../types';
 
 export const INITIAL_USERS: AppUser[] = [
   {
@@ -206,4 +206,160 @@ export const INITIAL_SALES: SalesTransaction[] = [];
 export const INITIAL_CONSTRUCTION: ConstructionMilestone[] = [];
 
 export const INITIAL_FINANCE: FinancialRecord[] = [];
+
+export const INITIAL_MATERIALS: MaterialItem[] = [
+  {
+    id: 'mat-1',
+    projectName: 'Grand Yusuf Residence',
+    name: 'Semen Tiga Roda 50kg',
+    unitCategory: 'Sak',
+    stockQty: 250,
+    unitPrice: 68000,
+    lastUpdated: '2026-07-24',
+  },
+  {
+    id: 'mat-2',
+    projectName: 'Grand Yusuf Residence',
+    name: 'Besi Beton Ulir 10mm',
+    unitCategory: 'Batang',
+    stockQty: 180,
+    unitPrice: 75000,
+    lastUpdated: '2026-07-24',
+  },
+  {
+    id: 'mat-3',
+    projectName: 'Grand Yusuf Residence',
+    name: 'Pasir Cor Super',
+    unitCategory: 'M3',
+    stockQty: 45,
+    unitPrice: 220000,
+    lastUpdated: '2026-07-23',
+  },
+  {
+    id: 'mat-4',
+    projectName: 'Grand Yusuf Residence',
+    name: 'Bata Ringan Hebel 10cm',
+    unitCategory: 'M3',
+    stockQty: 60,
+    unitPrice: 650000,
+    lastUpdated: '2026-07-22',
+  },
+];
+
+export const INITIAL_MATERIAL_USAGES: MaterialUsageRecord[] = [
+  {
+    id: 'usg-1',
+    materialId: 'mat-1',
+    materialName: 'Semen Tiga Roda 50kg',
+    unitCategory: 'Sak',
+    projectName: 'Grand Yusuf Residence',
+    unitId: 'unit-a01',
+    unitCode: 'Blok A No. 01',
+    quantityUsed: 15,
+    usageDate: '2026-07-23',
+    personInCharge: 'Mandor Supri',
+    reasonUsage: 'Pengecoran sloof pondasi dan tiang kolom utama',
+    createdAt: '2026-07-23T10:30:00Z',
+  },
+  {
+    id: 'usg-2',
+    materialId: 'mat-2',
+    materialName: 'Besi Beton Ulir 10mm',
+    unitCategory: 'Batang',
+    projectName: 'Grand Yusuf Residence',
+    unitId: 'unit-a02',
+    unitCode: 'Blok A No. 02',
+    quantityUsed: 20,
+    usageDate: '2026-07-24',
+    personInCharge: 'Mandor Supri',
+    reasonUsage: 'Rangka besi cakar ayam dan ring balk lantai 1',
+    createdAt: '2026-07-24T14:15:00Z',
+  },
+];
+
+export const INITIAL_PROGRESS_DOCS: ProgressDocumentation[] = [
+  {
+    id: 'doc-prog-1',
+    projectName: 'Grand Yusuf Residence',
+    unitId: 'unit-a01',
+    unitCode: 'Blok A No. 01',
+    executorType: 'Inhouse',
+    executorName: 'Tim Mandor Supri (Internal Developer)',
+    inspectionDate: '2026-07-24',
+    stageName: 'Pekerjaan Dinding & Rangka Atap',
+    progressPercent: 45,
+    photoUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b2?w=800&auto=format&fit=crop&q=80',
+    conditionNotes: 'Pemasangan bata ringan hebel sudah selesai 100%. Rangka baja ringan atap mulai dirakit.',
+    checkedBy: 'Mandor Supri',
+    createdAt: '2026-07-24T16:00:00Z',
+  },
+  {
+    id: 'doc-prog-2',
+    projectName: 'Grand Yusuf Residence',
+    unitId: 'unit-a02',
+    unitCode: 'Blok A No. 02',
+    executorType: 'Kontraktor',
+    executorName: 'CV Karya Utama Kontraktor',
+    inspectionDate: '2026-07-25',
+    stageName: 'Finishing & Cat Dinding',
+    progressPercent: 85,
+    photoUrl: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&auto=format&fit=crop&q=80',
+    conditionNotes: 'Pengecatan dasar interior & plester luar telah selesai. Pemasangan kramik lantai 60x60 berlangsung.',
+    checkedBy: 'Ir. Ahmad (Pengawas Lapangan)',
+    createdAt: '2026-07-25T09:00:00Z',
+  },
+];
+
+export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
+  {
+    id: 'att-101',
+    employeeId: 'usr-1',
+    employeeName: 'Yusuf Admin ERP',
+    employeeRole: 'Super Admin',
+    date: '2026-07-25',
+    attendanceType: 'Absen Pulang',
+    clockInTime: '08:00:00',
+    clockOutTime: '17:00:00',
+    locationName: 'Kantor Pusat Developer Yusuf Property',
+    coordinates: { lat: -6.2088, lng: 106.8456 },
+    locationAddress: 'Jl. Merdeka Utama No. 88, Jakarta Pusat (-6.2088, 106.8456)',
+    workDurationMinutes: 540,
+    workDurationFormatted: '9 Jam 0 Menit',
+    notes: 'Pekerjaan administrasi ERP & monitoring siteplan bulanan',
+    createdAt: '2026-07-25T08:00:00Z',
+  },
+  {
+    id: 'att-102',
+    employeeId: 'usr-2',
+    employeeName: 'Rian Prasetya',
+    employeeRole: 'Sales Marketing',
+    date: '2026-07-25',
+    attendanceType: 'Absen Masuk',
+    clockInTime: '08:15:00',
+    locationName: 'Grand Yusuf Residence (Proyek A)',
+    coordinates: { lat: -6.2891, lng: 106.8251 },
+    locationAddress: 'Kantor Pemasaran Galeri Grand Yusuf Residence (-6.2891, 106.8251)',
+    notes: 'Piketing Pemasaran & Pendampingan Consumer Survey',
+    createdAt: '2026-07-25T08:15:00Z',
+  },
+  {
+    id: 'att-103',
+    employeeId: 'usr-4',
+    employeeName: 'Budi Raharjo, S.E.',
+    employeeRole: 'Finance & Kasir',
+    date: '2026-07-25',
+    attendanceType: 'Lembur (Tgl Merah)',
+    clockInTime: '09:00:00',
+    clockOutTime: '15:30:00',
+    locationName: 'Kantor Pusat Developer Yusuf Property',
+    coordinates: { lat: -6.2088, lng: 106.8456 },
+    locationAddress: 'Gedung Finance Lantai 2 (-6.2088, 106.8456)',
+    workDurationMinutes: 390,
+    workDurationFormatted: '6 Jam 30 Menit',
+    isOvertimeHoliday: true,
+    notes: 'Lembur audit laporan keuangan bulanan & pencairan SP3K Bank Mandiri',
+    createdAt: '2026-07-25T09:00:00Z',
+  },
+];
+
 

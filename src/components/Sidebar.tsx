@@ -14,6 +14,7 @@ import {
   Tag,
   CheckCircle2,
   FolderCheck,
+  Clock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -75,6 +76,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Karyawan & Marketing',
       icon: Users,
       badge: null,
+    },
+    {
+      id: 'attendance' as TabType,
+      label: 'Absensi Karyawan',
+      icon: Clock,
+      badge: 'Absen GPS',
+      badgeColor: 'bg-amber-100 text-amber-800',
     },
     {
       id: 'user_access' as TabType,
