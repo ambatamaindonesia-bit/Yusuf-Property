@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppUser } from '../types';
-import { Building2, Lock, User, Key, ShieldCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Building2, User, Key, ArrowRight, ShieldCheck, Eye, EyeOff, Lock } from 'lucide-react';
 
 interface LoginScreenProps {
   users: AppUser[];
@@ -8,41 +8,47 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password;
+
+    if (!cleanUsername || !cleanPassword) {
+      setErrorMsg('Username dan Password wajib diisi.');
+      return;
+    }
+
+    // Lookup user in ERP System user database
     const foundUser = users.find(
-      (u) => u.username.toLowerCase() === username.trim().toLowerCase()
+      (u) => u.username.trim().toLowerCase() === cleanUsername
     );
 
     if (!foundUser) {
-      setErrorMsg('Username tidak ditemukan dalam sistem ERP.');
+      setErrorMsg('Username tidak terdaftar dalam Sistem Akses User ERP.');
       return;
     }
 
-    if (foundUser.password && foundUser.password !== password) {
-      setErrorMsg('Password salah! Silakan coba lagi.');
+    // Verify password against ERP configured user password
+    const expectedPassword = foundUser.password || '123';
+    if (cleanPassword !== expectedPassword) {
+      setErrorMsg('Password salah! Akses login ditolak oleh Sistem ERP.');
       return;
     }
 
+    // Check account active status
     if (foundUser.status === 'Nonaktif') {
-      setErrorMsg('Akun pengguna ini sedang Nonaktif. Hubungi Admin.');
+      setErrorMsg('Akun pengguna ini sedang Nonaktif. Hubungi Administrator.');
       return;
     }
 
     onLoginSuccess(foundUser);
-  };
-
-  const quickSelectUser = (u: AppUser) => {
-    setUsername(u.username);
-    setPassword(u.password || '123');
-    setErrorMsg('');
-    onLoginSuccess(u);
   };
 
   return (
@@ -70,8 +76,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
         <form onSubmit={handleLogin} className="space-y-4 pt-2">
           
           {errorMsg && (
-            <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-300 text-xs rounded-xl font-medium">
-              ⚠️ {errorMsg}
+            <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-300 text-xs rounded-xl font-medium flex items-center gap-2 animate-in fade-in duration-200">
+              <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
@@ -87,8 +94,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Masukkan username"
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                placeholder="Masukkan username anda"
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all placeholder:text-slate-500"
                 required
               />
             </div>
@@ -103,49 +110,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                 <Key className="w-4 h-4" />
               </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                placeholder="Masukkan password anda"
+                className="w-full pl-9 pr-10 py-2.5 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all placeholder:text-slate-500"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
           >
             <span>Masuk ke Dashboard ERP</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Quick Demo Accounts list */}
-        <div className="pt-4 border-t border-slate-800 space-y-2">
-          <p className="text-[11px] font-bold text-slate-400 text-center uppercase tracking-wider">
-            Pilih Akun Pengguna Cepat:
-          </p>
-          <div className="grid grid-cols-1 gap-1.5">
-            {users.slice(0, 4).map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => quickSelectUser(u)}
-                className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl flex items-center justify-between text-left transition-all text-xs"
-              >
-                <div>
-                  <div className="font-bold text-slate-200">{u.name}</div>
-                  <div className="text-[10px] text-slate-400">
-                    Role: <span className="text-amber-400 font-semibold">{u.role}</span> {u.marketingType !== '-' && `(${u.marketingType})`}
-                  </div>
-                </div>
-                <span className="px-2 py-1 bg-amber-500/10 text-amber-300 rounded text-[10px] font-bold border border-amber-500/20">
-                  Login ({u.username})
-                </span>
-              </button>
-            ))}
+        {/* Security Info Notice */}
+        <div className="p-3 bg-slate-800/60 border border-slate-800 rounded-2xl flex items-start gap-2.5 text-xs text-slate-400">
+          <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-[11px] leading-relaxed">
+            <span className="font-bold text-slate-300">Autentikasi Terproteksi:</span> Silakan gunakan Username & Password resmi yang terdaftar pada menu Akses Pengguna ERP.
           </div>
         </div>
 
@@ -158,3 +153,4 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
     </div>
   );
 };
+

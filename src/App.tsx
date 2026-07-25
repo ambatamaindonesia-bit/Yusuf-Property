@@ -46,9 +46,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
     const saved = localStorage.getItem('yp_erp_current_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return INITIAL_USERS[0]; }
+      try { return JSON.parse(saved); } catch (e) { return null; }
     }
-    return INITIAL_USERS[0]; // Default logged in as Super Admin
+    return null; // Force login screen on initial load
   });
 
   // Data persistence via localStorage

@@ -351,7 +351,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
               : 'border-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
-          Laporan Arus Kas Jurnal Keuangan — [{filteredFinances.length}]
+          Laporan Arus Kas Jurnal Keuangan — [{filteredFinancesSorted.length}]
         </button>
       </div>
 
