@@ -321,6 +321,11 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
     e.preventDefault();
     if (!custName || !custNik) return;
 
+    const nowStr = `${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`;
+    const userAuditInfo = currentUser
+      ? `${currentUser.name} (${currentUser.role})`
+      : 'User Login System';
+
     const newCustomer: CustomerProfile = {
       id: `cust-${Date.now()}`,
       name: custName,
@@ -340,8 +345,10 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
       marketingAgent: isSalesMarketing ? (currentUser?.name || 'Marketing') : custMarketingAgent,
       documents: createDefaultDocs(),
       notes: custNotes,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
+      createdBy: userAuditInfo,
+      createdAt: nowStr,
+      updatedBy: userAuditInfo,
+      updatedAt: nowStr,
     };
 
     onAddCustomer(newCustomer);
@@ -359,8 +366,6 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
 
     // Auto record UTJ / Initial Payment into Financial Journal
     if (custUtjPaid > 0 && onAddFinanceRecord) {
-      const nowStr = new Date().toLocaleString('id-ID');
-      const recordedBy = currentUser ? currentUser.name : 'System Auto-ERP';
       const financeEntry: FinancialRecord = {
         id: `fin-${Date.now()}-utj`,
         date: new Date().toISOString().split('T')[0],
@@ -374,13 +379,13 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
         payerName: custName,
         payerRelationship: 'Konsumen Langsung (Pribadi)',
         refNumber: `UTJ/YP/${Math.floor(1000 + Math.random() * 9000)}`,
-        recordedBy,
+        recordedBy: userAuditInfo,
         auditLogs: [
           {
             id: `log-${Date.now()}-cust`,
             timestamp: nowStr,
             action: 'CREATE',
-            user: recordedBy,
+            user: userAuditInfo,
             reason: 'Otomatisasi pencatatan UTJ dari pendaftaran konsumen baru',
             changesSummary: `UTJ Terbayar Rp ${custUtjPaid.toLocaleString('id-ID')}`,
           },
@@ -428,6 +433,11 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
     e.preventDefault();
     if (!selectedCustomer) return;
 
+    const nowStr = `${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`;
+    const userAuditInfo = currentUser
+      ? `${currentUser.name} (${currentUser.role})`
+      : 'User Login System';
+
     const updated: CustomerProfile = {
       ...selectedCustomer,
       name: custName,
@@ -444,7 +454,8 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
       kprBankTarget: custKprBankTarget,
       kprPlafonRequest: custKprPlafonRequest,
       notes: custNotes,
-      updatedAt: new Date().toISOString().split('T')[0],
+      updatedBy: userAuditInfo,
+      updatedAt: nowStr,
     };
 
     onUpdateCustomer(updated);
@@ -611,11 +622,17 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
       overallStatus = 'Dalam Proses Bank';
     }
 
+    const nowStr = `${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`;
+    const userAuditInfo = currentUser
+      ? `${currentUser.name} (${currentUser.role})`
+      : 'User Login System';
+
     const updatedCustomer: CustomerProfile = {
       ...customer,
       documents: docs,
       statusPemberkasan: overallStatus,
-      updatedAt: new Date().toISOString().split('T')[0],
+      updatedBy: userAuditInfo,
+      updatedAt: nowStr,
     };
 
     onUpdateCustomer(updatedCustomer);
@@ -983,6 +1000,44 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({
                       <span className="text-[10px] text-slate-400">
                         Update: {formatDate(selectedCustomer.updatedAt)}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* SPR Status & Audit Trail Banner */}
+                  <div className="bg-slate-850 p-3 rounded-xl border border-slate-750 space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Printer className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span className="font-extrabold text-white">Status Cetak Surat Pesanan Rumah (SPR):</span>
+                      </div>
+                      {selectedCustomer.sprPrintedAt || selectedCustomer.sprNumber || matchingSale ? (
+                        <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[11px] font-black flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>TERCETAK (No. SPR: {selectedCustomer.sprNumber || matchingSale?.sprNumber || '-'})</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[11px] font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Belum Cetak SPR (Input Baru)</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {(selectedCustomer.sprPrintedAt || matchingSale) && (
+                      <div className="text-[11px] text-emerald-300 font-mono bg-emerald-950/40 p-2 rounded-lg border border-emerald-900/50">
+                        ✓ Status SPR: User Konsumen telah dicetak SPR No. <strong>{selectedCustomer.sprNumber || matchingSale?.sprNumber}</strong> pada tanggal <strong>{selectedCustomer.sprPrintedAt || matchingSale?.createdAt || '-'}</strong> oleh <strong>{selectedCustomer.sprPrintedBy || matchingSale?.createdBy || selectedCustomer.marketingAgent || 'System Admin'}</strong>.
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400 pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Diinput oleh: <strong className="text-slate-200">{selectedCustomer.createdBy || selectedCustomer.marketingAgent || 'System ERP'}</strong> pada <span className="text-slate-300">{selectedCustomer.createdAt}</span></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <History className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Terakhir diupdate oleh: <strong className="text-slate-200">{selectedCustomer.updatedBy || currentUser?.name || 'System User'}</strong> pada <span className="text-slate-300">{selectedCustomer.updatedAt}</span></span>
+                      </div>
                     </div>
                   </div>
 

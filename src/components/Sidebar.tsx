@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   FolderCheck,
   Clock,
+  UserPlus,
+  PieChart,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,6 +72,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: FolderCheck,
       badge: 'Berkas User',
       badgeColor: 'bg-emerald-100 text-emerald-800',
+    },
+    {
+      id: 'prospects' as TabType,
+      label: 'Prospek User (Leads)',
+      icon: UserPlus,
+      badge: 'Input & GPS',
+      badgeColor: 'bg-purple-100 text-purple-800',
+    },
+    {
+      id: 'prospect_reports' as TabType,
+      label: 'Report Database Prospek',
+      icon: PieChart,
+      badge: 'Admin Only',
+      badgeColor: 'bg-rose-100 text-rose-800',
     },
     {
       id: 'employees' as TabType,

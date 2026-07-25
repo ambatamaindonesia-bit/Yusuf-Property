@@ -10,8 +10,8 @@ interface NavbarProps {
   projects: { id: string; name: string }[];
   searchTerm: string;
   setSearchTerm: (term: string) => void;
-  onOpenNewTransaction: () => void;
-  onOpenNewUnit: () => void;
+  onOpenNewTransaction?: () => void;
+  onOpenNewUnit?: () => void;
   onOpenKprCalc: () => void;
 }
 
@@ -96,22 +96,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Calculator className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Simulasi KPR</span>
-            </button>
-
-            <button
-              onClick={onOpenNewUnit}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Unit Baru</span>
-            </button>
-
-            <button
-              onClick={onOpenNewTransaction}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all shadow-md shadow-amber-500/20 active:scale-95"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span className="hidden sm:inline">Input SPR</span>
             </button>
 
             {/* Current User Badge & Logout */}

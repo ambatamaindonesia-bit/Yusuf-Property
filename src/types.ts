@@ -8,6 +8,8 @@ export type TabType =
   | 'siteplan'
   | 'sales'
   | 'user_data'
+  | 'prospects'
+  | 'prospect_reports'
   | 'employees'
   | 'attendance'
   | 'user_access'
@@ -38,6 +40,8 @@ export const ALL_TAB_ITEMS: { id: TabType; label: string; description: string; s
   { id: 'siteplan', label: 'Site Plan & Stok Unit', description: 'Peta denah visual & ketersediaan kavling' },
   { id: 'sales', label: 'Penjualan & KPR (SPR)', description: 'Pemesanan rumah & status pemberkasan KPR' },
   { id: 'user_data', label: 'Data User & Berkas KPR', description: 'Profil konsumen, KTP, KK, & syarat KPR' },
+  { id: 'prospects', label: 'Prospek User (Leads)', description: 'Input calon pembeli, sumber iklan, lokasi GPS & janji follow up' },
+  { id: 'prospect_reports', label: 'Report Database Prospek', description: 'Laporan database prospek konsumen (Khusus Admin & Manager)', superAdminOnly: true },
   { id: 'employees', label: 'Karyawan & Marketing', description: 'Data sales inhouse & broker agen' },
   { id: 'attendance', label: 'Absensi Karyawan', description: 'Absen masuk, absen pulang, lembur tanggal merah, & lokasi GPS' },
   { id: 'user_access', label: 'Kelola Akses User ERP', description: 'Hak akses & manajemen akun (Khusus Admin)', superAdminOnly: true },
@@ -49,22 +53,22 @@ export const ALL_TAB_ITEMS: { id: TabType; label: string; description: string; s
 
 export const DEFAULT_ROLE_TABS: Record<UserRole, TabType[]> = {
   'Super Admin': [
-    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'prospects', 'prospect_reports',
     'employees', 'attendance', 'user_access', 'kpr_calc', 'construction', 'finance', 'reports'
   ],
   'Manager Marketing': [
-    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'prospects', 'prospect_reports',
     'employees', 'attendance', 'kpr_calc', 'reports'
   ],
   'Finance & Kasir': [
-    'dashboard', 'projects', 'siteplan', 'sales', 'user_data',
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'prospects',
     'employees', 'attendance', 'finance', 'reports', 'kpr_calc'
   ],
   'Legal & Sertifikat': [
-    'dashboard', 'projects', 'sales', 'user_data', 'attendance', 'reports'
+    'dashboard', 'projects', 'sales', 'user_data', 'prospects', 'attendance', 'reports'
   ],
   'Sales Marketing': [
-    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'attendance', 'kpr_calc'
+    'dashboard', 'projects', 'siteplan', 'sales', 'user_data', 'prospects', 'attendance', 'kpr_calc'
   ],
 };
 
@@ -182,6 +186,11 @@ export interface SalesTransaction {
   sp3kNumber?: string;
   sp3kDate?: string;
   notes?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+  statusLogs?: { timestamp: string; user: string; oldStatus: string; newStatus: string; notes?: string }[];
 }
 
 export interface ConstructionMilestone {
@@ -241,6 +250,9 @@ export interface KprDocumentItem {
   fileName?: string;
   fileSize?: string;
   uploadDate?: string;
+  uploadedBy?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
   fileUrl?: string;
   notes?: string;
 }
@@ -264,7 +276,12 @@ export interface CustomerProfile {
   marketingAgent?: string; // Sales agent / marketing in charge
   documents: KprDocumentItem[];
   notes?: string;
+  sprNumber?: string;
+  sprPrintedAt?: string;
+  sprPrintedBy?: string;
+  createdBy?: string;
   createdAt: string;
+  updatedBy?: string;
   updatedAt: string;
 }
 
@@ -347,4 +364,55 @@ export interface AttendanceRecord {
   isOvertimeHoliday?: boolean; // Lembur Tanggal Merah
   notes?: string; // Keterangan tugas / lembur
   createdAt: string;
+}
+
+export type ProspectSource =
+  | 'Iklan Medsos'
+  | 'Visit Lokasi Langsung'
+  | 'Sebar Brosur'
+  | 'Referensi';
+
+export type ProspectStatus =
+  | 'Berminat'
+  | 'Cuma Tanya-tanya'
+  | 'Masih Dirundingkan'
+  | 'Minta Nego Harga'
+  | 'Proses KPR / Pemberkasan'
+  | 'Deal / Booking Kavling'
+  | 'Batal / Tidak Berminat';
+
+export interface ProspectFollowUp {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // e.g. "14:00"
+  type: 'Janji Ketemuan Lagi' | 'Telepon / WA Follow Up' | 'Survey Lokasi' | 'Negosiasi Harga';
+  notes: string;
+  isCompleted?: boolean;
+}
+
+export interface ProspectRecord {
+  id: string;
+  name: string; // Nama calon user / prospect
+  phone: string; // No telepon / WA
+  address: string; // Alamat prospect
+  source: ProspectSource;
+  sourceReferenceDetail?: string; // Detail jika sumber = 'Referensi' (misal: "Ref dari Pak Andi Tetangga")
+  status: ProspectStatus;
+  projectNameInterest?: string; // Proyek yang diminati
+  preferredUnitType?: string; // Tipe rumah / kavling
+  agentId: string; // ID user / marketing yang input
+  agentName: string; // Nama marketing yang input (berdasarkan user login)
+  agentRole: string; // Role user yang input
+  photoUrl?: string; // Bukti foto dengan user yang ditemui / lokasi
+  locationName?: string; // Lokasi GPS / Tempat pertemuan
+  locationAddress?: string; // Detail alamat GPS / koordinat
+  coordinates?: { lat: number; lng: number };
+  nextFollowUpDate?: string; // Tanggal janji ketemuan / follow up berikutnya
+  nextFollowUpTime?: string;
+  nextFollowUpType?: 'Janji Ketemuan Lagi' | 'Telepon / WA Follow Up' | 'Survey Lokasi' | 'Negosiasi Harga';
+  nextFollowUpNotes?: string;
+  followUpHistory?: ProspectFollowUp[];
+  notes?: string; // Catatan hasil diskusi / kebutuhan konsumen
+  createdAt: string;
+  updatedAt?: string;
 }

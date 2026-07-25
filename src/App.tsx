@@ -15,6 +15,7 @@ import {
   MaterialUsageRecord,
   ProgressDocumentation,
   AttendanceRecord,
+  ProspectRecord,
 } from './types';
 import {
   INITIAL_USERS,
@@ -28,6 +29,7 @@ import {
   INITIAL_MATERIAL_USAGES,
   INITIAL_PROGRESS_DOCS,
   INITIAL_ATTENDANCE,
+  INITIAL_PROSPECTS,
 } from './data/initialData';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -44,6 +46,8 @@ import { EmployeeMarketingManager } from './components/EmployeeMarketingManager'
 import { AttendanceManager } from './components/AttendanceManager';
 import { UserAccessManager } from './components/UserAccessManager';
 import { UserDataManager, DEFAULT_DOCUMENT_TEMPLATES } from './components/UserDataManager';
+import { ProspectsManager } from './components/ProspectsManager';
+import { ProspectReportsManager } from './components/ProspectReportsManager';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewUnitModal } from './components/NewUnitModal';
 
@@ -113,6 +117,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_ATTENDANCE;
   });
 
+  const [prospects, setProspects] = useState<ProspectRecord[]>(() => {
+    const saved = localStorage.getItem('yp_erp_prospects');
+    return saved ? JSON.parse(saved) : INITIAL_PROSPECTS;
+  });
+
   // Navigation & Search State
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -175,6 +184,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('yp_erp_attendance', JSON.stringify(attendanceRecords));
   }, [attendanceRecords]);
+
+  useEffect(() => {
+    localStorage.setItem('yp_erp_prospects', JSON.stringify(prospects));
+  }, [prospects]);
+
+  // Prospect Handlers
+  const handleAddProspect = (record: ProspectRecord) => {
+    setProspects((prev) => [record, ...prev]);
+  };
+
+  const handleUpdateProspect = (updated: ProspectRecord) => {
+    setProspects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  };
 
   // Attendance Handlers
   const handleAddAttendance = (record: AttendanceRecord) => {
@@ -429,11 +451,16 @@ export default function App() {
       setFinances((prev) => [dpRecord, ...prev]);
     }
 
-    // Auto sync Customer Profile in User Data Manager
+    // Auto sync Customer Profile in User Data Manager with SPR status & Audit info
     setCustomers((prevCusts) => {
       const existing = prevCusts.find(
         (c) => c.nik === newSales.buyer.nik || c.name.toLowerCase() === newSales.buyer.name.toLowerCase()
       );
+      const nowStr = `${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`;
+      const userAuditInfo = currentUser
+        ? `${currentUser.name} (${currentUser.role})`
+        : 'System Auto-ERP';
+
       if (existing) {
         return prevCusts.map((c) =>
           c.id === existing.id
@@ -441,7 +468,15 @@ export default function App() {
                 ...c,
                 unitCode: newSales.unitCode,
                 projectName: newSales.projectName,
+                kprBankTarget: newSales.kprBank || c.kprBankTarget || 'Bank BTN Syariah',
                 kprPlafonRequest: newSales.agreedPrice - newSales.dpPaid,
+                statusPemberkasan: 'Lengkap & Terverifikasi',
+                sprNumber: newSales.sprNumber,
+                sprPrintedAt: nowStr,
+                sprPrintedBy: userAuditInfo,
+                notes: `✓ [SPR DICETAK] No. SPR: ${newSales.sprNumber} | Unit: ${newSales.unitCode} (${newSales.projectName}) | Tgl Cetak: ${nowStr} oleh ${userAuditInfo}${c.notes ? ' || ' + c.notes : ''}`,
+                updatedBy: userAuditInfo,
+                updatedAt: nowStr,
               }
             : c
         );
@@ -459,9 +494,10 @@ export default function App() {
           monthlyIncome: newSales.buyer.monthlyIncome || 10000000,
           projectName: newSales.projectName,
           unitCode: newSales.unitCode,
-          kprBankTarget: newSales.kprBank || 'Bank BTN',
+          kprBankTarget: newSales.kprBank || 'Bank BTN Syariah',
           kprPlafonRequest: newSales.agreedPrice - newSales.dpPaid,
-          statusPemberkasan: 'Belum Lengkap',
+          statusPemberkasan: 'Lengkap & Terverifikasi',
+          marketingAgent: newSales.marketingAgent,
           documents: DEFAULT_DOCUMENT_TEMPLATES.map((tmpl, idx) => ({
             id: `doc-${Date.now()}-${idx}`,
             code: tmpl.code,
@@ -471,8 +507,14 @@ export default function App() {
             status: 'belum_ada',
             notes: tmpl.notes,
           })),
-          createdAt: newSales.transactionDate,
-          updatedAt: newSales.transactionDate,
+          sprNumber: newSales.sprNumber,
+          sprPrintedAt: nowStr,
+          sprPrintedBy: userAuditInfo,
+          notes: `✓ [SPR DICETAK] No. SPR: ${newSales.sprNumber} | Unit: ${newSales.unitCode} (${newSales.projectName}) | Tgl Cetak: ${nowStr} oleh ${userAuditInfo}`,
+          createdBy: userAuditInfo,
+          createdAt: nowStr,
+          updatedBy: userAuditInfo,
+          updatedAt: nowStr,
         };
         return [newCustomer, ...prevCusts];
       }
@@ -672,6 +714,24 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'prospects' && (
+            <ProspectsManager
+              prospects={prospects}
+              onAddProspect={handleAddProspect}
+              onUpdateProspect={handleUpdateProspect}
+              projects={projects}
+              currentUser={currentUser}
+            />
+          )}
+
+          {activeTab === 'prospect_reports' && (
+            <ProspectReportsManager
+              prospects={prospects}
+              projects={projects}
+              currentUser={currentUser}
+            />
+          )}
+
           {activeTab === 'employees' && (
             <EmployeeMarketingManager
               users={users}
@@ -754,6 +814,8 @@ export default function App() {
       {showNewTransactionModal && (
         <NewTransactionModal
           units={units}
+          customers={customers}
+          currentUser={currentUser}
           preselectedUnit={unitForSpr}
           onClose={() => {
             setShowNewTransactionModal(false);
