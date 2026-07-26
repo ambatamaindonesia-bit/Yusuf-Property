@@ -40,6 +40,8 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   // Form Fields
   const [username, setUsername] = useState('');
@@ -110,6 +112,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
     setStatus('Aktif');
     setNotes('');
     setAllowedTabs(DEFAULT_ROLE_TABS['Sales Marketing']);
+    setFormError(null);
   };
 
   const handleRoleChange = (newRole: UserRole) => {
@@ -130,10 +133,12 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
 
   const handleOpenAdd = () => {
     resetForm();
+    setFormError(null);
     setShowAddModal(true);
   };
 
   const handleOpenEdit = (u: AppUser) => {
+    setFormError(null);
     setEditingUser(u);
     setUsername(u.username);
     setPassword(u.password || '123456');
@@ -159,7 +164,43 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
 
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !name) return;
+    setFormError(null);
+
+    const cleanUsername = username.trim();
+    const cleanName = name.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanUsername) {
+      setFormError('Username login wajib diisi.');
+      return;
+    }
+
+    if (!cleanName) {
+      setFormError('Nama lengkap pengguna wajib diisi.');
+      return;
+    }
+
+    if (!cleanPassword) {
+      setFormError('Password login wajib diisi.');
+      return;
+    }
+
+    // Check duplicate username (case-insensitive)
+    const existingIndex = users.findIndex(
+      (u) => u.username.trim().toLowerCase() === cleanUsername.toLowerCase()
+    );
+
+    if (editingUser) {
+      if (existingIndex !== -1 && users[existingIndex].id !== editingUser.id) {
+        setFormError(`Username "${cleanUsername}" sudah digunakan oleh user lain! Silahkan pilih username yang berbeda.`);
+        return;
+      }
+    } else {
+      if (existingIndex !== -1) {
+        setFormError(`Username "${cleanUsername}" sudah terdaftar dalam sistem. Silahkan gunakan username yang lain.`);
+        return;
+      }
+    }
 
     // Filter allowed tabs to ensure user_access is only kept if Super Admin
     const finalAllowedTabs = role === 'Super Admin' 
@@ -169,43 +210,60 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
     if (editingUser) {
       const updated: AppUser = {
         ...editingUser,
-        username,
-        password,
-        name,
-        email,
-        phone,
+        username: cleanUsername,
+        password: cleanPassword,
+        name: cleanName,
+        email: email.trim(),
+        phone: phone.trim(),
         role,
         marketingType,
-        agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
+        agencyName: marketingType === 'Agent' ? agencyName.trim() : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         status,
-        notes,
+        notes: notes.trim(),
         allowedTabs: finalAllowedTabs,
       };
       onUpdateUser(updated);
       setEditingUser(null);
+      setFormSuccess(`✓ Hak akses user "${cleanName}" (@${cleanUsername}) berhasil diperbarui dan disinkronkan ke Cloud.`);
     } else {
       const newUser: AppUser = {
         id: `usr-${Date.now()}`,
-        username,
-        password,
-        name,
-        email,
-        phone,
+        username: cleanUsername,
+        password: cleanPassword,
+        name: cleanName,
+        email: email.trim(),
+        phone: phone.trim(),
         role,
         marketingType,
-        agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
+        agencyName: marketingType === 'Agent' ? agencyName.trim() : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         status,
-        notes,
+        notes: notes.trim(),
         allowedTabs: finalAllowedTabs,
       };
       onAddUser(newUser);
       setShowAddModal(false);
+      setFormSuccess(`✓ User baru "${cleanName}" (@${cleanUsername}) berhasil ditambahkan dan disinkronkan ke Cloud Firestore!`);
     }
     resetForm();
   };
 
   return (
     <div className="space-y-6">
+
+      {formSuccess && (
+        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-950 font-bold text-xs flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{formSuccess}</span>
+          </div>
+          <button
+            onClick={() => setFormSuccess(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-extrabold text-sm px-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       
       {/* Header Banner */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -569,6 +627,22 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
             {/* Scrollable Form Body */}
             <form onSubmit={handleSaveUser} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-xs">
               
+              {formError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-rose-900 font-bold flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormError(null)}
+                    className="text-rose-700 hover:text-rose-950 font-black px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               {/* Section 1: Data Akun & Kontak */}
               <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3">
                 <h4 className="font-extrabold text-slate-900 text-xs flex items-center gap-2 border-b border-slate-200 pb-2">
