@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppUser } from '../types';
-import { Building2, Plus, Calculator, Search, Home, LogOut } from 'lucide-react';
+import { Building2, Plus, Calculator, Search, Home, LogOut, Database } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: AppUser | null;
@@ -13,6 +13,7 @@ interface NavbarProps {
   onOpenNewTransaction?: () => void;
   onOpenNewUnit?: () => void;
   onOpenKprCalc: () => void;
+  onOpenDatabaseSync?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,6 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNewTransaction,
   onOpenNewUnit,
   onOpenKprCalc,
+  onOpenDatabaseSync,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 shadow-lg">
@@ -89,6 +91,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Quick Action Buttons & Profile */}
           <div className="flex items-center gap-2">
             
+            <button
+              onClick={onOpenDatabaseSync}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-700/60 transition-all shadow-sm"
+              title="Database IndexedDB & Auto-Sync Lintas User"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Database & Sync</span>
+            </button>
+
             <button
               onClick={onOpenKprCalc}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700 transition-colors"

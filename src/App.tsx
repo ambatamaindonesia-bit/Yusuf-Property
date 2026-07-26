@@ -50,6 +50,9 @@ import { ProspectsManager } from './components/ProspectsManager';
 import { ProspectReportsManager } from './components/ProspectReportsManager';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewUnitModal } from './components/NewUnitModal';
+import { DatabaseSyncModal } from './components/DatabaseSyncModal';
+import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
+import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
 
 export default function App() {
   // Users and Auth State
@@ -132,62 +135,223 @@ export default function App() {
   const [showNewUnitModal, setShowNewUnitModal] = useState<boolean>(false);
   const [unitForSpr, setUnitForSpr] = useState<Unit | null>(null);
 
-  // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('yp_erp_users', JSON.stringify(users));
-  }, [users]);
+  // Database Initialized Flag
+  const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
+  const [showDatabaseSyncModal, setShowDatabaseSyncModal] = useState<boolean>(false);
+
+  // Initial Load from IndexedDB (with automatic localStorage migration)
+  const reloadAllFromIndexedDB = async () => {
+    try {
+      await migrateLocalStorageToIndexedDB();
+
+      const [
+        savedUsers,
+        savedCurrentUser,
+        savedProjects,
+        savedUnits,
+        savedSales,
+        savedConstruction,
+        savedFinances,
+        savedCustomers,
+        savedMaterials,
+        savedUsages,
+        savedDocs,
+        savedAttendance,
+        savedProspects,
+      ] = await Promise.all([
+        idbGet<AppUser[]>('yp_erp_users'),
+        idbGet<AppUser>('yp_erp_current_user'),
+        idbGet<HousingProject[]>('yp_erp_projects'),
+        idbGet<Unit[]>('yp_erp_units'),
+        idbGet<SalesTransaction[]>('yp_erp_sales'),
+        idbGet<ConstructionMilestone[]>('yp_erp_construction'),
+        idbGet<FinancialRecord[]>('yp_erp_finances'),
+        idbGet<CustomerProfile[]>('yp_erp_customers'),
+        idbGet<MaterialItem[]>('yp_erp_materials'),
+        idbGet<MaterialUsageRecord[]>('yp_erp_material_usages'),
+        idbGet<ProgressDocumentation[]>('yp_erp_progress_docs'),
+        idbGet<AttendanceRecord[]>('yp_erp_attendance'),
+        idbGet<ProspectRecord[]>('yp_erp_prospects'),
+      ]);
+
+      if (savedUsers) setUsers(savedUsers);
+      if (savedCurrentUser) setCurrentUser(savedCurrentUser);
+      if (savedProjects) setProjects(savedProjects);
+      if (savedUnits) setUnits(savedUnits);
+      if (savedSales) setSales(savedSales);
+      if (savedConstruction) setConstruction(savedConstruction);
+      if (savedFinances) setFinances(savedFinances);
+      if (savedCustomers) setCustomers(savedCustomers);
+      if (savedMaterials) setMaterials(savedMaterials);
+      if (savedUsages) setMaterialUsages(savedUsages);
+      if (savedDocs) setProgressDocs(savedDocs);
+      if (savedAttendance) setAttendanceRecords(savedAttendance);
+      if (savedProspects) setProspects(savedProspects);
+    } catch (e) {
+      console.error('Error loading data from IndexedDB:', e);
+    } finally {
+      setIsDbLoaded(true);
+    }
+  };
 
   useEffect(() => {
+    reloadAllFromIndexedDB();
+  }, []);
+
+  // Listen for Realtime Broadcast Messages from Other Tabs/Windows
+  useEffect(() => {
+    const channel = getSyncChannel();
+    if (!channel) return;
+
+    const handleBroadcastMessage = (event: MessageEvent<BroadcastMessage>) => {
+      const msg = event.data;
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'SYNC_KEY' && msg.key && msg.payload !== undefined) {
+        switch (msg.key) {
+          case 'yp_erp_users':
+            setUsers(msg.payload);
+            break;
+          case 'yp_erp_projects':
+            setProjects(msg.payload);
+            break;
+          case 'yp_erp_units':
+            setUnits(msg.payload);
+            break;
+          case 'yp_erp_sales':
+            setSales(msg.payload);
+            break;
+          case 'yp_erp_construction':
+            setConstruction(msg.payload);
+            break;
+          case 'yp_erp_finances':
+            setFinances(msg.payload);
+            break;
+          case 'yp_erp_customers':
+            setCustomers(msg.payload);
+            break;
+          case 'yp_erp_materials':
+            setMaterials(msg.payload);
+            break;
+          case 'yp_erp_material_usages':
+            setMaterialUsages(msg.payload);
+            break;
+          case 'yp_erp_progress_docs':
+            setProgressDocs(msg.payload);
+            break;
+          case 'yp_erp_attendance':
+            setAttendanceRecords(msg.payload);
+            break;
+          case 'yp_erp_prospects':
+            setProspects(msg.payload);
+            break;
+        }
+      } else if (msg.type === 'SYNC_ALL') {
+        reloadAllFromIndexedDB();
+      }
+    };
+
+    channel.addEventListener('message', handleBroadcastMessage);
+    return () => {
+      channel.removeEventListener('message', handleBroadcastMessage);
+    };
+  }, []);
+
+  // Auto Persistence to IndexedDB + LocalStorage Cache + Realtime Broadcast
+  useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_users', users);
+    localStorage.setItem('yp_erp_users', JSON.stringify(users));
+    broadcastDataUpdate('yp_erp_users', users, currentUser?.name);
+  }, [users, isDbLoaded]);
+
+  useEffect(() => {
+    if (!isDbLoaded) return;
     if (currentUser) {
+      idbSet('yp_erp_current_user', currentUser);
       localStorage.setItem('yp_erp_current_user', JSON.stringify(currentUser));
     } else {
+      idbSet('yp_erp_current_user', null);
       localStorage.removeItem('yp_erp_current_user');
     }
-  }, [currentUser]);
+  }, [currentUser, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_projects', projects);
     localStorage.setItem('yp_erp_projects', JSON.stringify(projects));
-  }, [projects]);
+    broadcastDataUpdate('yp_erp_projects', projects, currentUser?.name);
+  }, [projects, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_units', units);
     localStorage.setItem('yp_erp_units', JSON.stringify(units));
-  }, [units]);
+    broadcastDataUpdate('yp_erp_units', units, currentUser?.name);
+  }, [units, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_sales', sales);
     localStorage.setItem('yp_erp_sales', JSON.stringify(sales));
-  }, [sales]);
+    broadcastDataUpdate('yp_erp_sales', sales, currentUser?.name);
+  }, [sales, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_construction', construction);
     localStorage.setItem('yp_erp_construction', JSON.stringify(construction));
-  }, [construction]);
+    broadcastDataUpdate('yp_erp_construction', construction, currentUser?.name);
+  }, [construction, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_finances', finances);
     localStorage.setItem('yp_erp_finances', JSON.stringify(finances));
-  }, [finances]);
+    broadcastDataUpdate('yp_erp_finances', finances, currentUser?.name);
+  }, [finances, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_customers', customers);
     localStorage.setItem('yp_erp_customers', JSON.stringify(customers));
-  }, [customers]);
+    broadcastDataUpdate('yp_erp_customers', customers, currentUser?.name);
+  }, [customers, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_materials', materials);
     localStorage.setItem('yp_erp_materials', JSON.stringify(materials));
-  }, [materials]);
+    broadcastDataUpdate('yp_erp_materials', materials, currentUser?.name);
+  }, [materials, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_material_usages', materialUsages);
     localStorage.setItem('yp_erp_material_usages', JSON.stringify(materialUsages));
-  }, [materialUsages]);
+    broadcastDataUpdate('yp_erp_material_usages', materialUsages, currentUser?.name);
+  }, [materialUsages, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_progress_docs', progressDocs);
     localStorage.setItem('yp_erp_progress_docs', JSON.stringify(progressDocs));
-  }, [progressDocs]);
+    broadcastDataUpdate('yp_erp_progress_docs', progressDocs, currentUser?.name);
+  }, [progressDocs, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_attendance', attendanceRecords);
     localStorage.setItem('yp_erp_attendance', JSON.stringify(attendanceRecords));
-  }, [attendanceRecords]);
+    broadcastDataUpdate('yp_erp_attendance', attendanceRecords, currentUser?.name);
+  }, [attendanceRecords, isDbLoaded]);
 
   useEffect(() => {
+    if (!isDbLoaded) return;
+    idbSet('yp_erp_prospects', prospects);
     localStorage.setItem('yp_erp_prospects', JSON.stringify(prospects));
-  }, [prospects]);
+    broadcastDataUpdate('yp_erp_prospects', prospects, currentUser?.name);
+  }, [prospects, isDbLoaded]);
 
   // Prospect Handlers
   const handleAddProspect = (record: ProspectRecord) => {
@@ -624,6 +788,7 @@ export default function App() {
         }}
         onOpenNewUnit={() => setShowNewUnitModal(true)}
         onOpenKprCalc={() => setActiveTab('kpr_calc')}
+        onOpenDatabaseSync={() => setShowDatabaseSyncModal(true)}
       />
 
       {/* Main Layout Container */}
@@ -830,6 +995,14 @@ export default function App() {
           projects={projects}
           onClose={() => setShowNewUnitModal(false)}
           onSubmit={handleCreateUnit}
+        />
+      )}
+
+      {showDatabaseSyncModal && (
+        <DatabaseSyncModal
+          currentUser={currentUser}
+          onClose={() => setShowDatabaseSyncModal(false)}
+          onDataReload={reloadAllFromIndexedDB}
         />
       )}
 
