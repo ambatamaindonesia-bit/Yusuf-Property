@@ -78,8 +78,8 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-white">Database & Auto-Sync System</h3>
-              <p className="text-[11px] text-slate-400">Penyimpanan Terintegrasi IndexedDB (Kapasitas Besar)</p>
+              <h3 className="font-extrabold text-sm text-white">Database Cloud & Auto-Sync System</h3>
+              <p className="text-[11px] text-slate-400">Firebase Firestore + IndexedDB Realtime Sync Multi-Device</p>
             </div>
           </div>
           <button

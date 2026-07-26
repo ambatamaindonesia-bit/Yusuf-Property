@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "User accounts and roles"
+    },
+    "projects": {
+      "title": "Housing Projects",
+      "description": "Housing developments and locations"
+    },
+    "units": {
+      "title": "Property Units",
+      "description": "House and land plot units"
+    },
+    "sales": {
+      "title": "Sales Transactions (SPR)",
+      "description": "Property sales transactions and SPR documents"
+    },
+    "construction": {
+      "title": "Construction Milestones",
+      "description": "Unit construction progress"
+    },
+    "finances": {
+      "title": "Financial Records",
+      "description": "Income and expense transactions"
+    },
+    "customers": {
+      "title": "Customer Profiles",
+      "description": "Buyer and prospect profiles"
+    },
+    "materials": {
+      "title": "Material Inventory",
+      "description": "Building materials stock"
+    },
+    "material_usages": {
+      "title": "Material Usage Records",
+      "description": "Logs of material consumption"
+    },
+    "progress_docs": {
+      "title": "Progress Documentation",
+      "description": "Photos and site progress docs"
+    },
+    "attendance": {
+      "title": "Attendance Records",
+      "description": "Worker and staff attendance"
+    },
+    "prospects": {
+      "title": "Marketing Prospects",
+      "description": "Marketing leads and follow ups"
+    }
+  }
+}

@@ -53,6 +53,7 @@ import { NewUnitModal } from './components/NewUnitModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
 import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
 import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
+import { saveToCloud, loadFromCloud, subscribeToCloudKey } from './utils/firebase';
 
 export default function App() {
   // Users and Auth State
@@ -139,25 +140,55 @@ export default function App() {
   const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
   const [showDatabaseSyncModal, setShowDatabaseSyncModal] = useState<boolean>(false);
 
-  // Initial Load from IndexedDB (with automatic localStorage migration)
-  const reloadAllFromIndexedDB = async () => {
+  // Initial Load from Cloud Firestore (Fallback to IndexedDB if offline or empty)
+  const reloadAllFromDatabase = async () => {
     try {
       await migrateLocalStorageToIndexedDB();
 
+      // Load from Cloud Firestore first
       const [
-        savedUsers,
-        savedCurrentUser,
-        savedProjects,
-        savedUnits,
-        savedSales,
-        savedConstruction,
-        savedFinances,
-        savedCustomers,
-        savedMaterials,
-        savedUsages,
-        savedDocs,
-        savedAttendance,
-        savedProspects,
+        cloudUsers,
+        cloudProjects,
+        cloudUnits,
+        cloudSales,
+        cloudConstruction,
+        cloudFinances,
+        cloudCustomers,
+        cloudMaterials,
+        cloudUsages,
+        cloudDocs,
+        cloudAttendance,
+        cloudProspects,
+      ] = await Promise.all([
+        loadFromCloud<AppUser[]>('yp_erp_users'),
+        loadFromCloud<HousingProject[]>('yp_erp_projects'),
+        loadFromCloud<Unit[]>('yp_erp_units'),
+        loadFromCloud<SalesTransaction[]>('yp_erp_sales'),
+        loadFromCloud<ConstructionMilestone[]>('yp_erp_construction'),
+        loadFromCloud<FinancialRecord[]>('yp_erp_finances'),
+        loadFromCloud<CustomerProfile[]>('yp_erp_customers'),
+        loadFromCloud<MaterialItem[]>('yp_erp_materials'),
+        loadFromCloud<MaterialUsageRecord[]>('yp_erp_material_usages'),
+        loadFromCloud<ProgressDocumentation[]>('yp_erp_progress_docs'),
+        loadFromCloud<AttendanceRecord[]>('yp_erp_attendance'),
+        loadFromCloud<ProspectRecord[]>('yp_erp_prospects'),
+      ]);
+
+      // IndexedDB fallbacks
+      const [
+        idbUsers,
+        idbCurrentUser,
+        idbProjects,
+        idbUnits,
+        idbSales,
+        idbConstruction,
+        idbFinances,
+        idbCustomers,
+        idbMaterials,
+        idbUsages,
+        idbDocs,
+        idbAttendance,
+        idbProspects,
       ] = await Promise.all([
         idbGet<AppUser[]>('yp_erp_users'),
         idbGet<AppUser>('yp_erp_current_user'),
@@ -174,31 +205,132 @@ export default function App() {
         idbGet<ProspectRecord[]>('yp_erp_prospects'),
       ]);
 
-      if (savedUsers) setUsers(savedUsers);
-      if (savedCurrentUser) setCurrentUser(savedCurrentUser);
-      if (savedProjects) setProjects(savedProjects);
-      if (savedUnits) setUnits(savedUnits);
-      if (savedSales) setSales(savedSales);
-      if (savedConstruction) setConstruction(savedConstruction);
-      if (savedFinances) setFinances(savedFinances);
-      if (savedCustomers) setCustomers(savedCustomers);
-      if (savedMaterials) setMaterials(savedMaterials);
-      if (savedUsages) setMaterialUsages(savedUsages);
-      if (savedDocs) setProgressDocs(savedDocs);
-      if (savedAttendance) setAttendanceRecords(savedAttendance);
-      if (savedProspects) setProspects(savedProspects);
+      const finalUsers = cloudUsers || idbUsers;
+      const finalProjects = cloudProjects || idbProjects;
+      const finalUnits = cloudUnits || idbUnits;
+      const finalSales = cloudSales || idbSales;
+      const finalConstruction = cloudConstruction || idbConstruction;
+      const finalFinances = cloudFinances || idbFinances;
+      const finalCustomers = cloudCustomers || idbCustomers;
+      const finalMaterials = cloudMaterials || idbMaterials;
+      const finalUsages = cloudUsages || idbUsages;
+      const finalDocs = cloudDocs || idbDocs;
+      const finalAttendance = cloudAttendance || idbAttendance;
+      const finalProspects = cloudProspects || idbProspects;
+
+      if (finalUsers) {
+        setUsers(finalUsers);
+        if (idbCurrentUser) {
+          const freshUser = finalUsers.find(
+            (u) => u.id === idbCurrentUser.id || u.username.toLowerCase() === idbCurrentUser.username.toLowerCase()
+          );
+          if (freshUser) {
+            if (freshUser.status === 'Nonaktif') {
+              setCurrentUser(null);
+            } else {
+              setCurrentUser(freshUser);
+            }
+          } else {
+            setCurrentUser(idbCurrentUser);
+          }
+        }
+      } else if (idbCurrentUser) {
+        setCurrentUser(idbCurrentUser);
+      }
+
+      if (finalProjects) setProjects(finalProjects);
+      if (finalUnits) setUnits(finalUnits);
+      if (finalSales) setSales(finalSales);
+      if (finalConstruction) setConstruction(finalConstruction);
+      if (finalFinances) setFinances(finalFinances);
+      if (finalCustomers) setCustomers(finalCustomers);
+      if (finalMaterials) setMaterials(finalMaterials);
+      if (finalUsages) setMaterialUsages(finalUsages);
+      if (finalDocs) setProgressDocs(finalDocs);
+      if (finalAttendance) setAttendanceRecords(finalAttendance);
+      if (finalProspects) setProspects(finalProspects);
+
+      // Seed cloud database if first initialization
+      if (!cloudProspects && finalProspects) saveToCloud('yp_erp_prospects', finalProspects);
+      if (!cloudSales && finalSales) saveToCloud('yp_erp_sales', finalSales);
+      if (!cloudUnits && finalUnits) saveToCloud('yp_erp_units', finalUnits);
+      if (!cloudProjects && finalProjects) saveToCloud('yp_erp_projects', finalProjects);
+      if (!cloudCustomers && finalCustomers) saveToCloud('yp_erp_customers', finalCustomers);
+      if (!cloudFinances && finalFinances) saveToCloud('yp_erp_finances', finalFinances);
+      if (!cloudConstruction && finalConstruction) saveToCloud('yp_erp_construction', finalConstruction);
+      if (!cloudMaterials && finalMaterials) saveToCloud('yp_erp_materials', finalMaterials);
+      if (!cloudUsages && finalUsages) saveToCloud('yp_erp_material_usages', finalUsages);
+      if (!cloudDocs && finalDocs) saveToCloud('yp_erp_progress_docs', finalDocs);
+      if (!cloudAttendance && finalAttendance) saveToCloud('yp_erp_attendance', finalAttendance);
+      if (!cloudUsers && finalUsers) saveToCloud('yp_erp_users', finalUsers);
+
     } catch (e) {
-      console.error('Error loading data from IndexedDB:', e);
+      console.error('Error loading data from Cloud/IndexedDB:', e);
     } finally {
       setIsDbLoaded(true);
     }
   };
 
   useEffect(() => {
-    reloadAllFromIndexedDB();
+    reloadAllFromDatabase();
   }, []);
 
-  // Listen for Realtime Broadcast Messages from Other Tabs/Windows
+  // Subscribe to Realtime Cloud Firestore Changes across all devices
+  useEffect(() => {
+    if (!isDbLoaded) return;
+
+    const unsubs = [
+      subscribeToCloudKey<AppUser[]>('yp_erp_users', (data) => setUsers(data)),
+      subscribeToCloudKey<HousingProject[]>('yp_erp_projects', (data) => setProjects(data)),
+      subscribeToCloudKey<Unit[]>('yp_erp_units', (data) => setUnits(data)),
+      subscribeToCloudKey<SalesTransaction[]>('yp_erp_sales', (data) => setSales(data)),
+      subscribeToCloudKey<ConstructionMilestone[]>('yp_erp_construction', (data) => setConstruction(data)),
+      subscribeToCloudKey<FinancialRecord[]>('yp_erp_finances', (data) => setFinances(data)),
+      subscribeToCloudKey<CustomerProfile[]>('yp_erp_customers', (data) => setCustomers(data)),
+      subscribeToCloudKey<MaterialItem[]>('yp_erp_materials', (data) => setMaterials(data)),
+      subscribeToCloudKey<MaterialUsageRecord[]>('yp_erp_material_usages', (data) => setMaterialUsages(data)),
+      subscribeToCloudKey<ProgressDocumentation[]>('yp_erp_progress_docs', (data) => setProgressDocs(data)),
+      subscribeToCloudKey<AttendanceRecord[]>('yp_erp_attendance', (data) => setAttendanceRecords(data)),
+      subscribeToCloudKey<ProspectRecord[]>('yp_erp_prospects', (data) => setProspects(data)),
+    ];
+
+    return () => {
+      unsubs.forEach((unsub) => unsub && unsub());
+    };
+  }, [isDbLoaded]);
+
+  // Real-time synchronization of currentUser permissions/menus whenever users array updates
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const matchedUser = users.find(
+      (u) => u.id === currentUser.id || u.username.toLowerCase() === currentUser.username.toLowerCase()
+    );
+
+    if (matchedUser) {
+      if (matchedUser.status === 'Nonaktif') {
+        alert(`Akun (${matchedUser.name}) telah dinonaktifkan oleh Administrator.`);
+        setCurrentUser(null);
+        return;
+      }
+
+      const isDifferent = JSON.stringify(matchedUser) !== JSON.stringify(currentUser);
+      if (isDifferent) {
+        console.log('Realtime user settings/permissions updated from Cloud:', matchedUser);
+        setCurrentUser(matchedUser);
+      }
+    }
+  }, [users]);
+
+  // Active Tab security protection (redirect if active tab is no longer permitted)
+  const currentAllowedTabs = getUserAllowedTabs(currentUser);
+  useEffect(() => {
+    if (currentUser && currentAllowedTabs.length > 0 && !currentAllowedTabs.includes(activeTab)) {
+      setActiveTab(currentAllowedTabs[0]);
+    }
+  }, [currentUser, currentAllowedTabs, activeTab]);
+
+  // Listen for Realtime Broadcast Messages from Other Tabs/Windows on same device
   useEffect(() => {
     const channel = getSyncChannel();
     if (!channel) return;
@@ -247,7 +379,7 @@ export default function App() {
             break;
         }
       } else if (msg.type === 'SYNC_ALL') {
-        reloadAllFromIndexedDB();
+        reloadAllFromDatabase();
       }
     };
 
@@ -257,11 +389,12 @@ export default function App() {
     };
   }, []);
 
-  // Auto Persistence to IndexedDB + LocalStorage Cache + Realtime Broadcast
+  // Auto Persistence to IndexedDB + LocalStorage Cache + Cloud Firestore + Realtime Broadcast
   useEffect(() => {
     if (!isDbLoaded) return;
     idbSet('yp_erp_users', users);
     localStorage.setItem('yp_erp_users', JSON.stringify(users));
+    saveToCloud('yp_erp_users', users);
     broadcastDataUpdate('yp_erp_users', users, currentUser?.name);
   }, [users, isDbLoaded]);
 
@@ -280,6 +413,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_projects', projects);
     localStorage.setItem('yp_erp_projects', JSON.stringify(projects));
+    saveToCloud('yp_erp_projects', projects);
     broadcastDataUpdate('yp_erp_projects', projects, currentUser?.name);
   }, [projects, isDbLoaded]);
 
@@ -287,6 +421,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_units', units);
     localStorage.setItem('yp_erp_units', JSON.stringify(units));
+    saveToCloud('yp_erp_units', units);
     broadcastDataUpdate('yp_erp_units', units, currentUser?.name);
   }, [units, isDbLoaded]);
 
@@ -294,6 +429,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_sales', sales);
     localStorage.setItem('yp_erp_sales', JSON.stringify(sales));
+    saveToCloud('yp_erp_sales', sales);
     broadcastDataUpdate('yp_erp_sales', sales, currentUser?.name);
   }, [sales, isDbLoaded]);
 
@@ -301,6 +437,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_construction', construction);
     localStorage.setItem('yp_erp_construction', JSON.stringify(construction));
+    saveToCloud('yp_erp_construction', construction);
     broadcastDataUpdate('yp_erp_construction', construction, currentUser?.name);
   }, [construction, isDbLoaded]);
 
@@ -308,6 +445,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_finances', finances);
     localStorage.setItem('yp_erp_finances', JSON.stringify(finances));
+    saveToCloud('yp_erp_finances', finances);
     broadcastDataUpdate('yp_erp_finances', finances, currentUser?.name);
   }, [finances, isDbLoaded]);
 
@@ -315,6 +453,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_customers', customers);
     localStorage.setItem('yp_erp_customers', JSON.stringify(customers));
+    saveToCloud('yp_erp_customers', customers);
     broadcastDataUpdate('yp_erp_customers', customers, currentUser?.name);
   }, [customers, isDbLoaded]);
 
@@ -322,6 +461,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_materials', materials);
     localStorage.setItem('yp_erp_materials', JSON.stringify(materials));
+    saveToCloud('yp_erp_materials', materials);
     broadcastDataUpdate('yp_erp_materials', materials, currentUser?.name);
   }, [materials, isDbLoaded]);
 
@@ -329,6 +469,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_material_usages', materialUsages);
     localStorage.setItem('yp_erp_material_usages', JSON.stringify(materialUsages));
+    saveToCloud('yp_erp_material_usages', materialUsages);
     broadcastDataUpdate('yp_erp_material_usages', materialUsages, currentUser?.name);
   }, [materialUsages, isDbLoaded]);
 
@@ -336,6 +477,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_progress_docs', progressDocs);
     localStorage.setItem('yp_erp_progress_docs', JSON.stringify(progressDocs));
+    saveToCloud('yp_erp_progress_docs', progressDocs);
     broadcastDataUpdate('yp_erp_progress_docs', progressDocs, currentUser?.name);
   }, [progressDocs, isDbLoaded]);
 
@@ -343,6 +485,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_attendance', attendanceRecords);
     localStorage.setItem('yp_erp_attendance', JSON.stringify(attendanceRecords));
+    saveToCloud('yp_erp_attendance', attendanceRecords);
     broadcastDataUpdate('yp_erp_attendance', attendanceRecords, currentUser?.name);
   }, [attendanceRecords, isDbLoaded]);
 
@@ -350,6 +493,7 @@ export default function App() {
     if (!isDbLoaded) return;
     idbSet('yp_erp_prospects', prospects);
     localStorage.setItem('yp_erp_prospects', JSON.stringify(prospects));
+    saveToCloud('yp_erp_prospects', prospects);
     broadcastDataUpdate('yp_erp_prospects', prospects, currentUser?.name);
   }, [prospects, isDbLoaded]);
 
@@ -1002,7 +1146,7 @@ export default function App() {
         <DatabaseSyncModal
           currentUser={currentUser}
           onClose={() => setShowDatabaseSyncModal(false)}
-          onDataReload={reloadAllFromIndexedDB}
+          onDataReload={reloadAllFromDatabase}
         />
       )}
 
