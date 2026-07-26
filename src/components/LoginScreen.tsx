@@ -18,7 +18,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
     setErrorMsg('');
 
     const cleanUsername = username.trim().toLowerCase();
-    const cleanPassword = password;
+    const cleanPassword = password.trim();
 
     if (!cleanUsername || !cleanPassword) {
       setErrorMsg('Username dan Password wajib diisi.');
@@ -31,12 +31,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
     );
 
     if (!foundUser) {
-      setErrorMsg('Username tidak terdaftar dalam Sistem Akses User ERP.');
+      setErrorMsg(`Username "${username}" tidak terdaftar dalam Sistem Akses User ERP.`);
       return;
     }
 
     // Verify password against ERP configured user password
-    const expectedPassword = foundUser.password || '123';
+    const expectedPassword = (foundUser.password || '123').trim();
     if (cleanPassword !== expectedPassword) {
       setErrorMsg('Password salah! Akses login ditolak oleh Sistem ERP.');
       return;
@@ -136,11 +136,49 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
           </button>
         </form>
 
+        {/* Quick Fill Registered Users List */}
+        <div className="pt-2 border-t border-slate-800 space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+            <span>Pilih Akun Terdaftar ({users.length} User):</span>
+            <span className="text-[10px] text-amber-400">Klik untuk autofill</span>
+          </div>
+          <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-xs custom-scrollbar">
+            {users.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => {
+                  setUsername(u.username);
+                  setPassword(u.password || '123456');
+                  setErrorMsg('');
+                }}
+                className={`w-full p-2 rounded-xl text-left border flex items-center justify-between transition-all ${
+                  username.trim().toLowerCase() === u.username.toLowerCase()
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 font-bold'
+                    : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+                }`}
+              >
+                <div className="truncate pr-2">
+                  <div className="font-bold text-xs truncate">{u.name}</div>
+                  <div className="text-[10px] text-slate-400 font-mono">
+                    @{u.username} • {u.role}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-900 text-amber-400 border border-slate-700">
+                    {u.password || '123456'}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Security Info Notice */}
         <div className="p-3 bg-slate-800/60 border border-slate-800 rounded-2xl flex items-start gap-2.5 text-xs text-slate-400">
           <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="text-[11px] leading-relaxed">
-            <span className="font-bold text-slate-300">Autentikasi Terproteksi:</span> Silakan gunakan Username & Password resmi yang terdaftar pada menu Akses Pengguna ERP.
+            <span className="font-bold text-slate-300">Autentikasi Terproteksi:</span> Pengguna baru yang ditambahkan di menu Kelola Akses User / Karyawan akan otomatis muncul di sini dan dapat digunakan untuk login.
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AppUser, UserRole, MarketingType, SalesTransaction } from '../types';
-import { Users, UserPlus, Search, Edit3, Trash2 } from 'lucide-react';
+import { AppUser, UserRole, MarketingType, SalesTransaction, DEFAULT_ROLE_TABS, getUserAllowedTabs } from '../types';
+import { Users, UserPlus, Search, Edit3, Trash2, CheckCircle2, XCircle, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
 
 interface EmployeeMarketingManagerProps {
   users: AppUser[];
@@ -24,10 +24,13 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   // Form Fields
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('123');
+  const [password, setPassword] = useState('123456');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -67,7 +70,8 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
 
   const resetForm = () => {
     setUsername('');
-    setPassword('123');
+    setPassword('123456');
+    setShowPassword(false);
     setName('');
     setEmail('');
     setPhone('');
@@ -77,6 +81,7 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
     setCommissionRatePercent(2.5);
     setStatus('Aktif');
     setNotes('');
+    setFormError(null);
   };
 
   const handleOpenAdd = () => {
@@ -85,9 +90,11 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
   };
 
   const handleOpenEdit = (u: AppUser) => {
+    setFormError(null);
     setEditingUser(u);
     setUsername(u.username);
-    setPassword(u.password || '123');
+    setPassword(u.password || '123456');
+    setShowPassword(false);
     setName(u.name);
     setEmail(u.email);
     setPhone(u.phone);
@@ -101,48 +108,105 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
 
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !name) return;
+    setFormError(null);
+
+    const cleanUsername = username.trim();
+    const cleanName = name.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanUsername) {
+      setFormError('Username login wajib diisi.');
+      return;
+    }
+
+    if (!cleanName) {
+      setFormError('Nama lengkap pengguna wajib diisi.');
+      return;
+    }
+
+    if (!cleanPassword) {
+      setFormError('Password login wajib diisi.');
+      return;
+    }
+
+    // Check duplicate username (case-insensitive)
+    const existingIndex = users.findIndex(
+      (u) => u.username.trim().toLowerCase() === cleanUsername.toLowerCase()
+    );
+
+    if (editingUser) {
+      if (existingIndex !== -1 && users[existingIndex].id !== editingUser.id) {
+        setFormError(`Username "${cleanUsername}" sudah terdaftar pada user lain. Silahkan pakai username berbeda.`);
+        return;
+      }
+    } else {
+      if (existingIndex !== -1) {
+        setFormError(`Username "${cleanUsername}" sudah pernah digunakan. Silahkan pilih username unik lain.`);
+        return;
+      }
+    }
+
+    const assignedAllowedTabs = DEFAULT_ROLE_TABS[role] || DEFAULT_ROLE_TABS['Sales Marketing'];
 
     if (editingUser) {
       const updated: AppUser = {
         ...editingUser,
-        username,
-        password,
-        name,
-        email,
-        phone,
+        username: cleanUsername,
+        password: cleanPassword,
+        name: cleanName,
+        email: email.trim(),
+        phone: phone.trim(),
         role,
         marketingType,
-        agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
+        agencyName: marketingType === 'Agent' ? agencyName.trim() : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         commissionRatePercent,
         status,
-        notes,
+        notes: notes.trim(),
+        allowedTabs: editingUser.allowedTabs && editingUser.allowedTabs.length > 0 ? editingUser.allowedTabs : assignedAllowedTabs,
       };
       onUpdateUser(updated);
       setEditingUser(null);
+      setFormSuccess(`✓ User "${cleanName}" (@${cleanUsername}) berhasil diperbarui.`);
     } else {
       const newUser: AppUser = {
         id: `usr-${Date.now()}`,
-        username,
-        password,
-        name,
-        email,
-        phone,
+        username: cleanUsername,
+        password: cleanPassword,
+        name: cleanName,
+        email: email.trim(),
+        phone: phone.trim(),
         role,
         marketingType,
-        agencyName: marketingType === 'Agent' ? agencyName : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
+        agencyName: marketingType === 'Agent' ? agencyName.trim() : marketingType === 'Inhouse' ? 'PT Yusuf Property (Inhouse)' : undefined,
         commissionRatePercent,
         status,
-        notes,
+        notes: notes.trim(),
+        allowedTabs: assignedAllowedTabs,
       };
       onAddUser(newUser);
       setShowAddModal(false);
+      setFormSuccess(`✓ User baru "${cleanName}" (@${cleanUsername}) berhasil dibuat! Bisa langsung digunakan untuk login.`);
     }
     resetForm();
   };
 
   return (
     <div className="space-y-6">
+
+      {formSuccess && (
+        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-950 font-bold text-xs flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{formSuccess}</span>
+          </div>
+          <button
+            onClick={() => setFormSuccess(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-extrabold text-sm px-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -406,6 +470,22 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
 
             <form onSubmit={handleSaveUser} className="p-5 space-y-3.5 text-xs">
               
+              {formError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-rose-900 font-bold flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormError(null)}
+                    className="text-rose-700 hover:text-rose-950 font-black px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Username Login</label>
@@ -414,19 +494,29 @@ export const EmployeeMarketingManager: React.FC<EmployeeMarketingManagerProps> =
                     placeholder="misal: rian.mkt"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-400"
                     required
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
-                    required
-                  />
+                  <label className="font-bold text-slate-700 block mb-1">Password Login</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Password user"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full p-2 pr-9 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-400"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
