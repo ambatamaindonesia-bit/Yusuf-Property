@@ -1,0 +1,22 @@
+{
+  "short_name": "Yusuf ERP",
+  "name": "Yusuf Property ERP Mobile",
+  "description": "Sistem ERP Developer Perumahan & Manajemen Akses Karyawan",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=192&auto=format&fit=crop&q=80",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=512&auto=format&fit=crop&q=80",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#f59e0b",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

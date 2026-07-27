@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppUser } from '../types';
-import { Building2, Plus, Calculator, Search, Home, LogOut, Database } from 'lucide-react';
+import { Building2, Plus, Calculator, Search, Home, LogOut, Database, Smartphone, Download } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: AppUser | null;
@@ -29,6 +29,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenKprCalc,
   onOpenDatabaseSync,
 }) => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      alert('Untuk menginstal di HP Android:\n1. Buka link di browser Chrome HP\n2. Klik ikon Opsi (titik tiga di kanan atas)\n3. Pilih "Instal aplikasi" atau "Tambahkan ke Layar Utama"');
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -44,8 +73,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="font-extrabold text-xl tracking-tight text-white font-sans">
                   YUSUF <span className="text-amber-400">PROPERTY</span>
                 </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  ERP DEVELOPER
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <Smartphone className="w-3 h-3" /> APP MOBILE
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
@@ -91,6 +120,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Quick Action Buttons & Profile */}
           <div className="flex items-center gap-2">
             
+            <button
+              type="button"
+              onClick={handleInstallApp}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md animate-pulse"
+              title="Instal Aplikasi Android di HP"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Instal App Android</span>
+            </button>
+
             <button
               onClick={onOpenDatabaseSync}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 border border-emerald-700/60 transition-all shadow-sm"
