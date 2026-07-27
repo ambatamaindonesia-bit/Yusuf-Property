@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { AppUser } from '../types';
-import { Building2, User, Key, ArrowRight, ShieldCheck, Eye, EyeOff, Lock } from 'lucide-react';
+import { Building2, User, Key, ArrowRight, ShieldCheck, Eye, EyeOff, Lock, RefreshCw } from 'lucide-react';
+import { loadFromCloud } from '../utils/firebase';
 
 interface LoginScreenProps {
   users: AppUser[];
   onLoginSuccess: (user: AppUser) => void;
+  onUpdateUsersList?: (users: AppUser[]) => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess, onUpdateUsersList }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isCheckingCloud, setIsCheckingCloud] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -25,18 +28,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
       return;
     }
 
-    // Lookup user in ERP System user database
-    const foundUser = users.find(
+    // 1. Check local state first
+    let activeUsersList = users;
+    let foundUser = activeUsersList.find(
       (u) => u.username.trim().toLowerCase() === cleanUsername
     );
 
+    // 2. If not found in local state, fetch latest from Cloud Firestore
     if (!foundUser) {
-      setErrorMsg(`Username "${username}" tidak terdaftar dalam Sistem Akses User ERP.`);
+      setIsCheckingCloud(true);
+      try {
+        const cloudUsers = await loadFromCloud<AppUser[]>('yp_erp_users');
+        if (cloudUsers && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+          activeUsersList = cloudUsers;
+          if (onUpdateUsersList) {
+            onUpdateUsersList(cloudUsers);
+          }
+          foundUser = activeUsersList.find(
+            (u) => u.username.trim().toLowerCase() === cleanUsername
+          );
+        }
+      } catch (err) {
+        console.error('Error checking cloud users during login:', err);
+      } finally {
+        setIsCheckingCloud(false);
+      }
+    }
+
+    if (!foundUser) {
+      setErrorMsg(`Username "${username}" tidak terdaftar dalam Sistem Akses User ERP. Hubungi Administrator.`);
       return;
     }
 
     // Verify password against ERP configured user password
-    const expectedPassword = (foundUser.password || '123').trim();
+    const expectedPassword = (foundUser.password || '123456').trim();
     if (cleanPassword !== expectedPassword) {
       setErrorMsg('Password salah! Akses login ditolak oleh Sistem ERP.');
       return;
@@ -129,10 +154,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
 
           <button
             type="submit"
-            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            disabled={isCheckingCloud}
+            className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/50 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
           >
-            <span>Masuk ke Dashboard ERP</span>
-            <ArrowRight className="w-4 h-4" />
+            {isCheckingCloud ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                <span>Memeriksa Cloud Firestore...</span>
+              </>
+            ) : (
+              <>
+                <span>Masuk ke Dashboard ERP</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

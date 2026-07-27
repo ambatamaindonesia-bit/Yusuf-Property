@@ -54,6 +54,7 @@ import { DatabaseSyncModal } from './components/DatabaseSyncModal';
 import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
 import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
 import { saveToCloud, loadFromCloud, subscribeToCloudKey } from './utils/firebase';
+import { Building2, RefreshCw } from 'lucide-react';
 
 export default function App() {
   // Users and Auth State
@@ -648,18 +649,30 @@ export default function App() {
 
   // User Management Handlers
   const handleAddUser = (newUser: AppUser) => {
-    setUsers((prev) => [newUser, ...prev]);
+    setUsers((prev) => {
+      const updated = [newUser, ...prev];
+      saveToCloud('yp_erp_users', updated);
+      return updated;
+    });
   };
 
   const handleUpdateUser = (updatedUser: AppUser) => {
-    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      saveToCloud('yp_erp_users', updated);
+      return updated;
+    });
     if (currentUser && currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
     }
   };
 
   const handleDeleteUser = (userId: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setUsers((prev) => {
+      const updated = prev.filter((u) => u.id !== userId);
+      saveToCloud('yp_erp_users', updated);
+      return updated;
+    });
   };
 
   // Project Management Handlers
@@ -898,12 +911,31 @@ export default function App() {
     }
   }, [currentUser, activeTab, userAllowedTabs]);
 
+  // Database Loading Splash Screen
+  if (!isDbLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 ring-4 ring-amber-400/30 animate-pulse">
+          <Building2 className="w-9 h-9" />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-black text-amber-400 tracking-tight">YUSUF PROPERTY ERP</h2>
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-2 font-medium">
+            <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+            Menghubungkan & Menyinkronkan Database Cloud Firestore...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // If not logged in, display Login Screen
   if (!currentUser) {
     return (
       <LoginScreen
         users={users}
         onLoginSuccess={(u) => setCurrentUser(u)}
+        onUpdateUsersList={(newUsers) => setUsers(newUsers)}
       />
     );
   }
