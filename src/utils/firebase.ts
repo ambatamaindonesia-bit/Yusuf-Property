@@ -23,10 +23,28 @@ export const db = getFirestore(app, dbId);
 // OR save real-time listener for each entity.
 // Storing as document or sync store ensures atomic, instant synchronization across all connected devices!
 
+// Helper function to recursively sanitize data (convert undefined properties or remove them)
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirestore);
+  }
+  const cleanObj: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
+    if (value !== undefined) {
+      cleanObj[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleanObj;
+}
+
 export async function saveToCloud<T>(key: string, data: T): Promise<void> {
   try {
     const docRef = doc(db, 'erp_data', key);
-    await setDoc(docRef, { payload: data, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleanData = sanitizeForFirestore(data);
+    await setDoc(docRef, { payload: cleanData, updatedAt: new Date().toISOString() });
   } catch (err) {
     console.error(`Firebase Firestore save error for key ${key}:`, err);
   }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, X, HardDrive, Cpu, Radio } from 'lucide-react';
+import { Database, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, X, HardDrive, Cpu, Radio, Lock } from 'lucide-react';
 import { exportDatabaseToJson, importDatabaseFromJson, idbGetAllKeys } from '../utils/indexedDB';
 import { AppUser } from '../types';
 
@@ -17,8 +17,14 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const isAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin';
+
   // Handle Export Backup JSON File
   const handleExport = async () => {
+    if (!isAdmin) {
+      setStatusMessage('🔒 Akses Ditolak: Hanya Admin atau Super Admin yang dapat meng-export backup database.');
+      return;
+    }
     try {
       setIsProcessing(true);
       const jsonStr = await exportDatabaseToJson();
@@ -43,6 +49,10 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
 
   // Handle Import Backup JSON File
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) {
+      setStatusMessage('🔒 Akses Ditolak: Hanya Admin atau Super Admin yang dapat meng-import backup database.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -134,30 +144,50 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
 
           {/* Backup & Import Controls */}
           <div className="pt-2 space-y-2">
-            <span className="font-bold text-slate-300 block text-xs">Manajemen Database & Backup File:</span>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={handleExport}
-                disabled={isProcessing}
-                className="p-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export Backup (.json)</span>
-              </button>
-
-              <label className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer text-center">
-                <Upload className="w-4 h-4" />
-                <span>Import Backup (.json)</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportFile}
-                  disabled={isProcessing}
-                  className="hidden"
-                />
-              </label>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-300 block text-xs">Manajemen Database & Backup File:</span>
+              {!isAdmin && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  <Lock className="w-3 h-3" /> Hanya Admin
+                </span>
+              )}
             </div>
+            
+            {isAdmin ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isProcessing}
+                  className="p-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Backup (.json)</span>
+                </button>
+
+                <label className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer text-center">
+                  <Upload className="w-4 h-4" />
+                  <span>Import Backup (.json)</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportFile}
+                    disabled={isProcessing}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2 text-center">
+                <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-xs">
+                  <Lock className="w-4 h-4" />
+                  <span>Fitur Export Backup Terkunci</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Fitur untuk mengunduh / meng-export backup database JSON hanya dapat diakses oleh pengguna dengan role <strong>Super Admin</strong> atau <strong>Admin</strong>.
+                </p>
+              </div>
+            )}
           </div>
 
           {statusMessage && (
