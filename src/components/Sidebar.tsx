@@ -17,6 +17,7 @@ import {
   Clock,
   UserPlus,
   PieChart,
+  Smartphone
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,6 +30,8 @@ interface SidebarProps {
     booking: number;
     sold: number;
   };
+  isMobileFrameActive?: boolean;
+  onToggleMobileFrame?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -36,7 +39,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   currentUser = null,
   unitsCount,
+  isMobileFrameActive,
+  onToggleMobileFrame,
 }) => {
+
   const allowedTabs = getUserAllowedTabs(currentUser);
 
   const allNavItems = [
@@ -205,6 +211,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Tampilan HP Simulator Option */}
+        {onToggleMobileFrame && (
+          <button
+            type="button"
+            onClick={onToggleMobileFrame}
+            className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+              isMobileFrameActive
+                ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Smartphone className={`w-4 h-4 ${isMobileFrameActive ? 'text-amber-400' : 'text-slate-400'}`} />
+              <div className="text-left">
+                <div className="font-bold text-xs">Tampilan HP (Simulator)</div>
+                <div className="text-[10px] text-slate-400">
+                  {isMobileFrameActive ? 'Mode HP Aktif' : 'Simulasi layar Smartphone'}
+                </div>
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+              isMobileFrameActive
+                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                : 'bg-slate-900 text-amber-400 border-slate-700'
+            }`}>
+              {isMobileFrameActive ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        )}
 
       </div>
 

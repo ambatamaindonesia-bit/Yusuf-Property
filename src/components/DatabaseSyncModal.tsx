@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Database, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, X, HardDrive, Cpu, Radio, Lock } from 'lucide-react';
+import { Database, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, X, HardDrive, Cpu, Radio, Lock, Server, Link, Settings, AlertTriangle } from 'lucide-react';
 import { exportDatabaseToJson, importDatabaseFromJson, idbGetAllKeys } from '../utils/indexedDB';
 import { AppUser } from '../types';
+import { saveSupabaseConfig, isSupabaseConnected } from '../utils/supabase';
+import { checkIsFirebaseQuotaExceeded } from '../utils/firebase';
 
 interface DatabaseSyncModalProps {
   currentUser: AppUser | null;
@@ -17,7 +19,28 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Supabase Config State
+  const metaEnv = (import.meta as any).env || {};
+  const [showSupabaseSettings, setShowSupabaseSettings] = useState(false);
+  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('yp_supabase_url') || metaEnv.VITE_SUPABASE_URL || '');
+  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('yp_supabase_key') || metaEnv.VITE_SUPABASE_ANON_KEY || '');
+  const [supabaseActive, setSupabaseActive] = useState(() => isSupabaseConnected());
+
   const isAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin';
+
+  const handleSaveSupabase = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabaseUrl.trim() || !supabaseKey.trim()) {
+      setStatusMessage('⚠️ Harap isi URL dan Anon Key Supabase secara lengkap.');
+      return;
+    }
+    saveSupabaseConfig(supabaseUrl, supabaseKey);
+    setSupabaseActive(true);
+    setStatusMessage('✓ Konfigurasi Database Supabase berhasil disimpan & terhubung!');
+    setTimeout(() => {
+      onDataReload();
+    }, 1000);
+  };
 
   // Handle Export Backup JSON File
   const handleExport = async () => {
@@ -107,15 +130,79 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
           <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl space-y-1.5">
             <div className="flex items-center justify-between text-emerald-300">
               <span className="font-extrabold flex items-center gap-1.5 text-xs">
-                <HardDrive className="w-4 h-4 text-emerald-400" /> Storage Engine: IndexedDB (Aktif)
+                <HardDrive className="w-4 h-4 text-emerald-400" /> Storage Engine: IndexedDB & Cloud Storage
               </span>
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-[10px] font-black border border-emerald-500/40">
-                100% SIAP PAKAI
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${checkIsFirebaseQuotaExceeded() ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'}`}>
+                {checkIsFirebaseQuotaExceeded() ? '⚡ MODE HIPER-SAVING (SUPABASE / INDEXEDDB)' : '100% SIAP PAKAI'}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Seluruh data input, foto bukti lokasi, sertifikat, berkas KPR, serta log perubahan tersimpan langsung di database internal browser <strong>IndexedDB</strong> tanpa batas 5MB LocalStorage.
+              Seluruh data input, foto bukti lokasi, sertifikat, berkas KPR, serta log perubahan tersimpan langsung secara offline-first di database browser <strong>IndexedDB</strong> & Supabase Cloud.
             </p>
+            {checkIsFirebaseQuotaExceeded() && (
+              <div className="mt-1 p-2 bg-amber-950/60 border border-amber-800/80 rounded-lg text-amber-200 text-[10px] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  Quota harian gratis Firestore telah mencapai batas. Aplikasi secara otomatis dan aman menggunakan IndexedDB lokal & Supabase Cloud tanpa mengganggu data atau penggunaan aplikasi.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Supabase Database Integration Banner */}
+          <div className="p-3 bg-emerald-950/50 border border-emerald-700/60 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-emerald-400" />
+                <span className="font-extrabold text-emerald-200 text-xs">Supabase Cloud Database Engine</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${supabaseActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
+                {supabaseActive ? '✓ TERHUBUNG' : '⚡ DAPAT DIHUBUNGKAN'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Dukungan penuh integrasi Supabase PostgreSQL untuk penyimpanan terpusat, sinkronisasi tabel real-time, dan akses dari berbagai perangkat HP / Komputer.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowSupabaseSettings(!showSupabaseSettings)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>{showSupabaseSettings ? 'Sembunyikan Pengaturan Supabase' : 'Kelola Koneksi & Credentials Supabase'}</span>
+            </button>
+
+            {showSupabaseSettings && (
+              <form onSubmit={handleSaveSupabase} className="mt-2.5 pt-2 border-t border-emerald-800/60 space-y-2.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-emerald-300 mb-1">Supabase Project URL:</label>
+                  <input
+                    type="url"
+                    value={supabaseUrl}
+                    onChange={(e) => setSupabaseUrl(e.target.value)}
+                    placeholder="https://your-project.supabase.co"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-emerald-300 mb-1">Supabase Anon Key:</label>
+                  <input
+                    type="password"
+                    value={supabaseKey}
+                    onChange={(e) => setSupabaseKey(e.target.value)}
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs shadow transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Link className="w-3.5 h-3.5" />
+                  <span>Simpan & Connect Supabase</span>
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Realtime Cross-Tab Broadcast Banner */}

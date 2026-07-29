@@ -51,12 +51,27 @@ import { ProspectReportsManager } from './components/ProspectReportsManager';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewUnitModal } from './components/NewUnitModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileFrame } from './components/MobileFrame';
 import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
 import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
 import { saveToCloud, loadFromCloud, subscribeToCloudKey } from './utils/firebase';
 import { Building2, RefreshCw } from 'lucide-react';
 
 export default function App() {
+  // Mobile View Frame State
+  const [isMobileFrameActive, setIsMobileFrameActive] = useState<boolean>(() => {
+    return localStorage.getItem('yp_erp_mobile_frame') === 'true';
+  });
+
+  const toggleMobileFrame = () => {
+    setIsMobileFrameActive((prev) => {
+      const next = !prev;
+      localStorage.setItem('yp_erp_mobile_frame', String(next));
+      return next;
+    });
+  };
+
   // Users and Auth State
   const [users, setUsers] = useState<AppUser[]>(() => {
     const saved = localStorage.getItem('yp_erp_users');
@@ -946,247 +961,271 @@ export default function App() {
   const bookingUnitsCount = units.filter((u) => u.status === 'booking').length;
   const soldUnitsCount = units.filter((u) => u.status === 'sold').length;
 
-  return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
-      
-      {/* Top Header */}
-      <Navbar
-        currentUser={currentUser}
-        onLogout={() => setCurrentUser(null)}
-        selectedProject={selectedProjectId}
-        setSelectedProject={setSelectedProjectId}
-        projects={projects}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        onOpenNewTransaction={() => {
-          setUnitForSpr(null);
-          setShowNewTransactionModal(true);
-        }}
-        onOpenNewUnit={() => setShowNewUnitModal(true)}
-        onOpenKprCalc={() => setActiveTab('kpr_calc')}
-        onOpenDatabaseSync={() => setShowDatabaseSyncModal(true)}
-      />
+  const allowedTabs = getUserAllowedTabs(currentUser);
 
-      {/* Main Layout Container */}
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
+  return (
+    <MobileFrame
+      isActive={isMobileFrameActive}
+      onToggleActive={toggleMobileFrame}
+    >
+      <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col pb-16 md:pb-0">
         
-        {/* Sidebar Navigation */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
+        {/* Top Header */}
+        <Navbar
           currentUser={currentUser}
-          unitsCount={{
-            total: totalUnitsCount,
-            available: availableUnitsCount,
-            booking: bookingUnitsCount,
-            sold: soldUnitsCount,
+          onLogout={() => setCurrentUser(null)}
+          selectedProject={selectedProjectId}
+          setSelectedProject={setSelectedProjectId}
+          projects={projects}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onOpenNewTransaction={() => {
+            setUnitForSpr(null);
+            setShowNewTransactionModal(true);
           }}
+          onOpenNewUnit={() => setShowNewUnitModal(true)}
+          onOpenKprCalc={() => setActiveTab('kpr_calc')}
+          onOpenDatabaseSync={() => setShowDatabaseSyncModal(true)}
+          isMobileFrameActive={isMobileFrameActive}
+          onToggleMobileFrame={toggleMobileFrame}
         />
 
-        {/* Dynamic Content View */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+        {/* Main Layout Container */}
+        <div className="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto">
           
-          {activeTab === 'dashboard' && (
-            <DashboardOverview
-              projects={projects}
-              units={units}
-              sales={sales}
-              construction={construction}
-              finances={finances}
-              onNavigateTab={(tab) => setActiveTab(tab)}
-              onOpenNewTransaction={() => setShowNewTransactionModal(true)}
-            />
-          )}
+          {/* Sidebar Navigation */}
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            currentUser={currentUser}
+            unitsCount={{
+              total: totalUnitsCount,
+              available: availableUnitsCount,
+              booking: bookingUnitsCount,
+              sold: soldUnitsCount,
+            }}
+            isMobileFrameActive={isMobileFrameActive}
+            onToggleMobileFrame={toggleMobileFrame}
+          />
 
-          {activeTab === 'projects' && (
-            <ProjectsManager
-              projects={projects}
-              onAddProject={handleAddProject}
-              onUpdateProject={handleUpdateProject}
-              onDeleteProject={handleDeleteProject}
-              onSelectProjectForSiteplan={(pId) => {
-                setSelectedProjectId(pId);
-                setActiveTab('siteplan');
-              }}
-            />
-          )}
+          {/* Dynamic Content View */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+            
+            {activeTab === 'dashboard' && (
+              <DashboardOverview
+                projects={projects}
+                units={units}
+                sales={sales}
+                construction={construction}
+                finances={finances}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onOpenNewTransaction={() => setShowNewTransactionModal(true)}
+              />
+            )}
 
-          {activeTab === 'siteplan' && (
-            <SiteplanViewer
-              projects={projects}
-              units={units}
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              onSelectUnitForSpr={(unit) => {
-                setUnitForSpr(unit);
-                setShowNewTransactionModal(true);
-              }}
-              onOpenNewUnitModal={() => setShowNewUnitModal(true)}
-              onUpdateUnitStatus={handleUpdateUnitStatus}
-              onUpdateUnit={handleUpdateUnit}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'projects' && (
+              <ProjectsManager
+                projects={projects}
+                onAddProject={handleAddProject}
+                onUpdateProject={handleUpdateProject}
+                onDeleteProject={handleDeleteProject}
+                onSelectProjectForSiteplan={(pId) => {
+                  setSelectedProjectId(pId);
+                  setActiveTab('siteplan');
+                }}
+              />
+            )}
 
-          {activeTab === 'sales' && (
-            <SalesKprManager
-              sales={sales}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              onOpenNewTransaction={() => setShowNewTransactionModal(true)}
-              onUpdateKprStatus={handleUpdateKprStatus}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'siteplan' && (
+              <SiteplanViewer
+                projects={projects}
+                units={units}
+                selectedProjectId={selectedProjectId}
+                setSelectedProjectId={setSelectedProjectId}
+                onSelectUnitForSpr={(unit) => {
+                  setUnitForSpr(unit);
+                  setShowNewTransactionModal(true);
+                }}
+                onOpenNewUnitModal={() => setShowNewUnitModal(true)}
+                onUpdateUnitStatus={handleUpdateUnitStatus}
+                onUpdateUnit={handleUpdateUnit}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'user_data' && (
-            <UserDataManager
-              customers={customers}
-              sales={sales}
-              finances={finances}
-              units={units}
-              projects={projects}
-              onAddCustomer={handleAddCustomer}
-              onUpdateCustomer={handleUpdateCustomer}
-              onDeleteCustomer={handleDeleteCustomer}
-              onAddFinanceRecord={handleAddFinanceRecord}
-              onUpdateUnitStatus={handleUpdateUnitStatus}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'sales' && (
+              <SalesKprManager
+                sales={sales}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                onOpenNewTransaction={() => setShowNewTransactionModal(true)}
+                onUpdateKprStatus={handleUpdateKprStatus}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'prospects' && (
-            <ProspectsManager
-              prospects={prospects}
-              onAddProspect={handleAddProspect}
-              onUpdateProspect={handleUpdateProspect}
-              projects={projects}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'user_data' && (
+              <UserDataManager
+                customers={customers}
+                sales={sales}
+                finances={finances}
+                units={units}
+                projects={projects}
+                onAddCustomer={handleAddCustomer}
+                onUpdateCustomer={handleUpdateCustomer}
+                onDeleteCustomer={handleDeleteCustomer}
+                onAddFinanceRecord={handleAddFinanceRecord}
+                onUpdateUnitStatus={handleUpdateUnitStatus}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'prospect_reports' && (
-            <ProspectReportsManager
-              prospects={prospects}
-              projects={projects}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'prospects' && (
+              <ProspectsManager
+                prospects={prospects}
+                onAddProspect={handleAddProspect}
+                onUpdateProspect={handleUpdateProspect}
+                projects={projects}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'employees' && (
-            <EmployeeMarketingManager
-              users={users}
-              sales={sales}
-              onAddUser={handleAddUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-            />
-          )}
+            {activeTab === 'prospect_reports' && (
+              <ProspectReportsManager
+                prospects={prospects}
+                projects={projects}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'attendance' && (
-            <AttendanceManager
-              attendanceRecords={attendanceRecords}
-              users={users}
-              projects={projects}
-              currentUser={currentUser}
-              onAddAttendance={handleAddAttendance}
-              onUpdateAttendance={handleUpdateAttendance}
-              onDeleteAttendance={handleDeleteAttendance}
-            />
-          )}
+            {activeTab === 'employees' && (
+              <EmployeeMarketingManager
+                users={users}
+                sales={sales}
+                onAddUser={handleAddUser}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
+              />
+            )}
 
-          {activeTab === 'user_access' && (
-            <UserAccessManager
-              users={users}
-              currentUser={currentUser}
-              onAddUser={handleAddUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-            />
-          )}
+            {activeTab === 'attendance' && (
+              <AttendanceManager
+                attendanceRecords={attendanceRecords}
+                users={users}
+                projects={projects}
+                currentUser={currentUser}
+                onAddAttendance={handleAddAttendance}
+                onUpdateAttendance={handleUpdateAttendance}
+                onDeleteAttendance={handleDeleteAttendance}
+              />
+            )}
 
-          {activeTab === 'kpr_calc' && <KprCalculator />}
+            {activeTab === 'user_access' && (
+              <UserAccessManager
+                users={users}
+                currentUser={currentUser}
+                onAddUser={handleAddUser}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
+              />
+            )}
 
-          {activeTab === 'construction' && (
-            <ConstructionManager
-              construction={construction}
-              projects={projects}
-              units={units}
-              materials={materials}
-              materialUsages={materialUsages}
-              progressDocs={progressDocs}
-              onUpdateProgress={handleUpdateConstructionProgress}
-              onAddMaterial={handleAddMaterial}
-              onUpdateMaterial={handleUpdateMaterial}
-              onDeleteMaterial={handleDeleteMaterial}
-              onAddMaterialUsage={handleAddMaterialUsage}
-              onUpdateMaterialUsage={handleUpdateMaterialUsage}
-              onDeleteMaterialUsage={handleDeleteMaterialUsage}
-              onAddProgressDoc={handleAddProgressDoc}
-              onDeleteProgressDoc={handleDeleteProgressDoc}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'kpr_calc' && <KprCalculator />}
 
-          {activeTab === 'finance' && (
-            <FinanceManager
-              finances={finances}
-              onAddFinanceRecord={handleAddFinanceRecord}
-              onUpdateFinanceRecord={handleUpdateFinanceRecord}
-              onDeleteFinanceRecord={handleDeleteFinanceRecord}
-              currentUser={currentUser}
-            />
-          )}
+            {activeTab === 'construction' && (
+              <ConstructionManager
+                construction={construction}
+                projects={projects}
+                units={units}
+                materials={materials}
+                materialUsages={materialUsages}
+                progressDocs={progressDocs}
+                onUpdateProgress={handleUpdateConstructionProgress}
+                onAddMaterial={handleAddMaterial}
+                onUpdateMaterial={handleUpdateMaterial}
+                onDeleteMaterial={handleDeleteMaterial}
+                onAddMaterialUsage={handleAddMaterialUsage}
+                onUpdateMaterialUsage={handleUpdateMaterialUsage}
+                onDeleteMaterialUsage={handleDeleteMaterialUsage}
+                onAddProgressDoc={handleAddProgressDoc}
+                onDeleteProgressDoc={handleDeleteProgressDoc}
+                currentUser={currentUser}
+              />
+            )}
 
-          {activeTab === 'reports' && (
-            <ReportsManager
-              projects={projects}
-              units={units}
-              sales={sales}
-              finances={finances}
-            />
-          )}
+            {activeTab === 'finance' && (
+              <FinanceManager
+                finances={finances}
+                onAddFinanceRecord={handleAddFinanceRecord}
+                onUpdateFinanceRecord={handleUpdateFinanceRecord}
+                onDeleteFinanceRecord={handleDeleteFinanceRecord}
+                currentUser={currentUser}
+              />
+            )}
 
-        </main>
+            {activeTab === 'reports' && (
+              <ReportsManager
+                projects={projects}
+                units={units}
+                sales={sales}
+                finances={finances}
+              />
+            )}
+
+          </main>
+
+        </div>
+
+        {/* Global Modals */}
+        {showNewTransactionModal && (
+          <NewTransactionModal
+            units={units}
+            customers={customers}
+            currentUser={currentUser}
+            preselectedUnit={unitForSpr}
+            onClose={() => {
+              setShowNewTransactionModal(false);
+              setUnitForSpr(null);
+            }}
+            onSubmit={handleCreateTransaction}
+          />
+        )}
+
+        {showNewUnitModal && (
+          <NewUnitModal
+            projects={projects}
+            onClose={() => setShowNewUnitModal(false)}
+            onSubmit={handleCreateUnit}
+          />
+        )}
+
+        {showDatabaseSyncModal && (
+          <DatabaseSyncModal
+            currentUser={currentUser}
+            onClose={() => setShowDatabaseSyncModal(false)}
+            onDataReload={reloadAllFromDatabase}
+          />
+        )}
+
+        {/* Fixed Touch-Optimized Mobile Bottom Navigation Bar */}
+        <MobileBottomNav
+          activeTab={activeTab}
+          setActiveTab={(tab) => setActiveTab(tab as TabType)}
+          currentUser={currentUser}
+          onLogout={() => setCurrentUser(null)}
+          onOpenKprCalc={() => setActiveTab('kpr_calc')}
+          onOpenDatabaseSync={() => setShowDatabaseSyncModal(true)}
+          allowedTabs={allowedTabs}
+          isMobileFrameActive={isMobileFrameActive}
+          onToggleMobileFrame={toggleMobileFrame}
+        />
+
+        {/* Footer */}
+        <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-center py-4 text-xs font-medium">
+          <p>© 2026 PT Yusuf Property Indonesia. All rights reserved. — Sistem ERP Developer Perumahan Terpadu</p>
+        </footer>
 
       </div>
-
-      {/* Global Modals */}
-      {showNewTransactionModal && (
-        <NewTransactionModal
-          units={units}
-          customers={customers}
-          currentUser={currentUser}
-          preselectedUnit={unitForSpr}
-          onClose={() => {
-            setShowNewTransactionModal(false);
-            setUnitForSpr(null);
-          }}
-          onSubmit={handleCreateTransaction}
-        />
-      )}
-
-      {showNewUnitModal && (
-        <NewUnitModal
-          projects={projects}
-          onClose={() => setShowNewUnitModal(false)}
-          onSubmit={handleCreateUnit}
-        />
-      )}
-
-      {showDatabaseSyncModal && (
-        <DatabaseSyncModal
-          currentUser={currentUser}
-          onClose={() => setShowDatabaseSyncModal(false)}
-          onDataReload={reloadAllFromDatabase}
-        />
-      )}
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-center py-4 text-xs font-medium">
-        <p>© 2026 PT Yusuf Property Indonesia. All rights reserved. — Sistem ERP Developer Perumahan Terpadu</p>
-      </footer>
-
-    </div>
+    </MobileFrame>
   );
 }

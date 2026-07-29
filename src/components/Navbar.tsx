@@ -14,6 +14,8 @@ interface NavbarProps {
   onOpenNewUnit?: () => void;
   onOpenKprCalc: () => void;
   onOpenDatabaseSync?: () => void;
+  isMobileFrameActive?: boolean;
+  onToggleMobileFrame?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,7 +30,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNewUnit,
   onOpenKprCalc,
   onOpenDatabaseSync,
+  isMobileFrameActive,
+  onToggleMobileFrame,
 }) => {
+
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
@@ -120,14 +125,32 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Quick Action Buttons & Profile */}
           <div className="flex items-center gap-2">
             
+            {onToggleMobileFrame && (
+              <button
+                type="button"
+                onClick={onToggleMobileFrame}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                  isMobileFrameActive
+                    ? 'bg-amber-500 text-slate-950 font-black ring-2 ring-amber-300'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
+                }`}
+                title="Pilihan Tampilan HP / Smartphone Simulator"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {isMobileFrameActive ? 'Tampilan HP (Aktif)' : 'Tampilan HP'}
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleInstallApp}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md animate-pulse"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md"
               title="Instal Aplikasi Android di HP"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Instal App Android</span>
+              <span className="hidden sm:inline">Instal App</span>
             </button>
 
             <button
