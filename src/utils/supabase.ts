@@ -29,10 +29,18 @@ export function isSupabaseConnected(): boolean {
 }
 
 
-export function saveSupabaseConfig(url: string, key: string) {
-  localStorage.setItem('yp_supabase_url', url.trim());
-  localStorage.setItem('yp_supabase_key', key.trim());
-  supabaseInstance = createClient(url.trim(), key.trim());
+export function saveSupabaseConfig(url: string, key: string, skipCloudSave = false) {
+  const cleanUrl = url.trim();
+  const cleanKey = key.trim();
+  localStorage.setItem('yp_supabase_url', cleanUrl);
+  localStorage.setItem('yp_supabase_key', cleanKey);
+  if (cleanUrl && cleanKey) {
+    try {
+      supabaseInstance = createClient(cleanUrl, cleanKey);
+    } catch (e) {
+      console.warn('Failed to re-initialize Supabase client:', e);
+    }
+  }
 }
 
 export async function saveToSupabase<T>(key: string, data: T): Promise<boolean> {

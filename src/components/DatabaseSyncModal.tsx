@@ -3,7 +3,7 @@ import { Database, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, X, Ha
 import { exportDatabaseToJson, importDatabaseFromJson, idbGetAllKeys } from '../utils/indexedDB';
 import { AppUser } from '../types';
 import { saveSupabaseConfig, isSupabaseConnected } from '../utils/supabase';
-import { checkIsFirebaseQuotaExceeded } from '../utils/firebase';
+import { checkIsFirebaseQuotaExceeded, saveToCloud } from '../utils/firebase';
 
 interface DatabaseSyncModalProps {
   currentUser: AppUser | null;
@@ -35,8 +35,9 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({
       return;
     }
     saveSupabaseConfig(supabaseUrl, supabaseKey);
+    saveToCloud('yp_supabase_config', { url: supabaseUrl, key: supabaseKey });
     setSupabaseActive(true);
-    setStatusMessage('✓ Konfigurasi Database Supabase berhasil disimpan & terhubung!');
+    setStatusMessage('✓ Konfigurasi Database Supabase berhasil disimpan & disinkronkan ke seluruh perangkat!');
     setTimeout(() => {
       onDataReload();
     }, 1000);

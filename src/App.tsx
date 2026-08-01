@@ -56,7 +56,7 @@ import { MobileFrame } from './components/MobileFrame';
 import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
 import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
 import { saveToCloud, loadFromCloud, subscribeToCloudKey } from './utils/firebase';
-import { fetchUsersFromSupabase, saveUsersToSupabase } from './utils/supabase';
+import { fetchUsersFromSupabase, saveUsersToSupabase, isSupabaseConnected, saveSupabaseConfig } from './utils/supabase';
 import { Building2, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -162,6 +162,28 @@ export default function App() {
     try {
       await migrateLocalStorageToIndexedDB();
 
+      // Helper to pick first non-empty valid array
+      const pickValidArray = <T,>(...sources: (T[] | null | undefined)[]): T[] | null => {
+        for (const src of sources) {
+          if (src && Array.isArray(src) && src.length > 0) {
+            return src;
+          }
+        }
+        return null;
+      };
+
+      // Auto-connect Supabase if configured in Cloud but not locally present
+      if (!isSupabaseConnected()) {
+        try {
+          const cloudSupaCfg = await loadFromCloud<{ url: string; key: string }>('yp_supabase_config');
+          if (cloudSupaCfg && cloudSupaCfg.url && cloudSupaCfg.key) {
+            saveSupabaseConfig(cloudSupaCfg.url, cloudSupaCfg.key, true);
+          }
+        } catch (err) {
+          console.warn('Could not auto-fetch Supabase config from Cloud:', err);
+        }
+      }
+
       // Load from Supabase "users" table & Cloud Firestore
       const supabaseUsers = await fetchUsersFromSupabase();
 
@@ -224,18 +246,18 @@ export default function App() {
         idbGet<ProspectRecord[]>('yp_erp_prospects'),
       ]);
 
-      const finalUsers = supabaseUsers || cloudUsers || idbUsers;
-      const finalProjects = cloudProjects || idbProjects;
-      const finalUnits = cloudUnits || idbUnits;
-      const finalSales = cloudSales || idbSales;
-      const finalConstruction = cloudConstruction || idbConstruction;
-      const finalFinances = cloudFinances || idbFinances;
-      const finalCustomers = cloudCustomers || idbCustomers;
-      const finalMaterials = cloudMaterials || idbMaterials;
-      const finalUsages = cloudUsages || idbUsages;
-      const finalDocs = cloudDocs || idbDocs;
-      const finalAttendance = cloudAttendance || idbAttendance;
-      const finalProspects = cloudProspects || idbProspects;
+      const finalUsers = pickValidArray(supabaseUsers, cloudUsers, idbUsers);
+      const finalProjects = pickValidArray(cloudProjects, idbProjects);
+      const finalUnits = pickValidArray(cloudUnits, idbUnits);
+      const finalSales = pickValidArray(cloudSales, idbSales);
+      const finalConstruction = pickValidArray(cloudConstruction, idbConstruction);
+      const finalFinances = pickValidArray(cloudFinances, idbFinances);
+      const finalCustomers = pickValidArray(cloudCustomers, idbCustomers);
+      const finalMaterials = pickValidArray(cloudMaterials, idbMaterials);
+      const finalUsages = pickValidArray(cloudUsages, idbUsages);
+      const finalDocs = pickValidArray(cloudDocs, idbDocs);
+      const finalAttendance = pickValidArray(cloudAttendance, idbAttendance);
+      const finalProspects = pickValidArray(cloudProspects, idbProspects);
 
       if (finalUsers) {
         setUsers(finalUsers);
@@ -299,18 +321,42 @@ export default function App() {
     if (!isDbLoaded) return;
 
     const unsubs = [
-      subscribeToCloudKey<AppUser[]>('yp_erp_users', (data) => setUsers(data)),
-      subscribeToCloudKey<HousingProject[]>('yp_erp_projects', (data) => setProjects(data)),
-      subscribeToCloudKey<Unit[]>('yp_erp_units', (data) => setUnits(data)),
-      subscribeToCloudKey<SalesTransaction[]>('yp_erp_sales', (data) => setSales(data)),
-      subscribeToCloudKey<ConstructionMilestone[]>('yp_erp_construction', (data) => setConstruction(data)),
-      subscribeToCloudKey<FinancialRecord[]>('yp_erp_finances', (data) => setFinances(data)),
-      subscribeToCloudKey<CustomerProfile[]>('yp_erp_customers', (data) => setCustomers(data)),
-      subscribeToCloudKey<MaterialItem[]>('yp_erp_materials', (data) => setMaterials(data)),
-      subscribeToCloudKey<MaterialUsageRecord[]>('yp_erp_material_usages', (data) => setMaterialUsages(data)),
-      subscribeToCloudKey<ProgressDocumentation[]>('yp_erp_progress_docs', (data) => setProgressDocs(data)),
-      subscribeToCloudKey<AttendanceRecord[]>('yp_erp_attendance', (data) => setAttendanceRecords(data)),
-      subscribeToCloudKey<ProspectRecord[]>('yp_erp_prospects', (data) => setProspects(data)),
+      subscribeToCloudKey<AppUser[]>('yp_erp_users', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setUsers(data);
+      }),
+      subscribeToCloudKey<HousingProject[]>('yp_erp_projects', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setProjects(data);
+      }),
+      subscribeToCloudKey<Unit[]>('yp_erp_units', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setUnits(data);
+      }),
+      subscribeToCloudKey<SalesTransaction[]>('yp_erp_sales', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setSales(data);
+      }),
+      subscribeToCloudKey<ConstructionMilestone[]>('yp_erp_construction', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setConstruction(data);
+      }),
+      subscribeToCloudKey<FinancialRecord[]>('yp_erp_finances', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setFinances(data);
+      }),
+      subscribeToCloudKey<CustomerProfile[]>('yp_erp_customers', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setCustomers(data);
+      }),
+      subscribeToCloudKey<MaterialItem[]>('yp_erp_materials', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setMaterials(data);
+      }),
+      subscribeToCloudKey<MaterialUsageRecord[]>('yp_erp_material_usages', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setMaterialUsages(data);
+      }),
+      subscribeToCloudKey<ProgressDocumentation[]>('yp_erp_progress_docs', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setProgressDocs(data);
+      }),
+      subscribeToCloudKey<AttendanceRecord[]>('yp_erp_attendance', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setAttendanceRecords(data);
+      }),
+      subscribeToCloudKey<ProspectRecord[]>('yp_erp_prospects', (data) => {
+        if (data && Array.isArray(data) && data.length > 0) setProspects(data);
+      }),
     ];
 
     return () => {

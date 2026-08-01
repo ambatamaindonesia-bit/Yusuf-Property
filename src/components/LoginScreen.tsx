@@ -39,7 +39,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess,
 
       // 2. Fetch full user list from Supabase / Cloud to keep app state synced
       fetchedUserList = await fetchUsersFromSupabase();
-      if (!fetchedUserList) {
+      if (!fetchedUserList || fetchedUserList.length === 0) {
         fetchedUserList = await loadFromCloud<AppUser[]>('yp_erp_users');
       }
 
@@ -50,7 +50,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess,
         if (!foundUser) {
           foundUser = fetchedUserList.find(
             (u) =>
-              u.username.trim().toLowerCase() === cleanIdentifier ||
+              (u.username && u.username.trim().toLowerCase() === cleanIdentifier) ||
               (u.email && u.email.trim().toLowerCase() === cleanIdentifier)
           ) || null;
         }
