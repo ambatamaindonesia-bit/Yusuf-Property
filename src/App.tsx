@@ -56,6 +56,7 @@ import { MobileFrame } from './components/MobileFrame';
 import { idbGet, idbSet, migrateLocalStorageToIndexedDB } from './utils/indexedDB';
 import { broadcastDataUpdate, getSyncChannel, BroadcastMessage } from './utils/broadcastChannel';
 import { saveToCloud, loadFromCloud, subscribeToCloudKey } from './utils/firebase';
+import { fetchUsersFromSupabase, saveUsersToSupabase } from './utils/supabase';
 import { Building2, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -161,7 +162,9 @@ export default function App() {
     try {
       await migrateLocalStorageToIndexedDB();
 
-      // Load from Cloud Firestore first
+      // Load from Supabase "users" table & Cloud Firestore
+      const supabaseUsers = await fetchUsersFromSupabase();
+
       const [
         cloudUsers,
         cloudProjects,
@@ -221,7 +224,7 @@ export default function App() {
         idbGet<ProspectRecord[]>('yp_erp_prospects'),
       ]);
 
-      const finalUsers = cloudUsers || idbUsers;
+      const finalUsers = supabaseUsers || cloudUsers || idbUsers;
       const finalProjects = cloudProjects || idbProjects;
       const finalUnits = cloudUnits || idbUnits;
       const finalSales = cloudSales || idbSales;
@@ -405,11 +408,12 @@ export default function App() {
     };
   }, []);
 
-  // Auto Persistence to IndexedDB + LocalStorage Cache + Cloud Firestore + Realtime Broadcast
+  // Auto Persistence to IndexedDB + LocalStorage Cache + Supabase Users Table + Realtime Broadcast
   useEffect(() => {
     if (!isDbLoaded) return;
     idbSet('yp_erp_users', users);
     localStorage.setItem('yp_erp_users', JSON.stringify(users));
+    saveUsersToSupabase(users);
     saveToCloud('yp_erp_users', users);
     broadcastDataUpdate('yp_erp_users', users, currentUser?.name);
   }, [users, isDbLoaded]);
@@ -662,10 +666,11 @@ export default function App() {
     localStorage.setItem('yp_erp_finances', JSON.stringify([]));
   };
 
-  // User Management Handlers
+  // User Management Handlers (Persisted to Supabase users table)
   const handleAddUser = (newUser: AppUser) => {
     setUsers((prev) => {
       const updated = [newUser, ...prev];
+      saveUsersToSupabase(updated);
       saveToCloud('yp_erp_users', updated);
       return updated;
     });
@@ -674,6 +679,7 @@ export default function App() {
   const handleUpdateUser = (updatedUser: AppUser) => {
     setUsers((prev) => {
       const updated = prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      saveUsersToSupabase(updated);
       saveToCloud('yp_erp_users', updated);
       return updated;
     });
@@ -685,6 +691,7 @@ export default function App() {
   const handleDeleteUser = (userId: string) => {
     setUsers((prev) => {
       const updated = prev.filter((u) => u.id !== userId);
+      saveUsersToSupabase(updated);
       saveToCloud('yp_erp_users', updated);
       return updated;
     });

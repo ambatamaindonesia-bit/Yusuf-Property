@@ -224,7 +224,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
       };
       onUpdateUser(updated);
       setEditingUser(null);
-      setFormSuccess(`✓ Hak akses user "${cleanName}" (@${cleanUsername}) berhasil diperbarui dan disinkronkan ke Cloud.`);
+      setFormSuccess(`✓ Hak akses user "${cleanName}" (@${cleanUsername}) berhasil diperbarui dan disinkronkan ke Supabase & Cloud Database.`);
     } else {
       const newUser: AppUser = {
         id: `usr-${Date.now()}`,
@@ -242,7 +242,7 @@ export const UserAccessManager: React.FC<UserAccessManagerProps> = ({
       };
       onAddUser(newUser);
       setShowAddModal(false);
-      setFormSuccess(`✓ User baru "${cleanName}" (@${cleanUsername}) berhasil ditambahkan dan disinkronkan ke Cloud Firestore!`);
+      setFormSuccess(`✓ User baru "${cleanName}" (@${cleanUsername}) berhasil ditambahkan dan disinkronkan ke Supabase & Cloud Database!`);
     }
     resetForm();
   };

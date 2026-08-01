@@ -190,6 +190,9 @@ export interface SalesTransaction {
   createdAt?: string;
   updatedBy?: string;
   updatedAt?: string;
+  isBackdate?: boolean;
+  backdateDate?: string;
+  backdateNotes?: string;
   statusLogs?: { timestamp: string; user: string; oldStatus: string; newStatus: string; notes?: string }[];
 }
 
@@ -215,6 +218,9 @@ export interface TransactionAuditLog {
   user: string;
   reason: string;
   changesSummary?: string;
+  isBackdate?: boolean;
+  backdateDate?: string;
+  backdateReason?: string;
 }
 
 export interface FinancialRecord {
@@ -235,6 +241,9 @@ export interface FinancialRecord {
   deletedAt?: string;
   deleteReason?: string;
   deletedBy?: string;
+  isBackdate?: boolean;
+  backdateDate?: string;
+  backdateReason?: string;
   auditLogs?: TransactionAuditLog[];
 }
 

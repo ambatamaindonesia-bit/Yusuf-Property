@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AppUser } from '../types';
 import { Building2, User, Key, ArrowRight, ShieldCheck, Eye, EyeOff, Lock, RefreshCw } from 'lucide-react';
 import { loadFromCloud } from '../utils/firebase';
+import { fetchUsersFromSupabase, verifyUserLoginFromSupabase } from '../utils/supabase';
 
 interface LoginScreenProps {
   users: AppUser[];
@@ -20,43 +21,57 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess,
     e.preventDefault();
     setErrorMsg('');
 
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanIdentifier = username.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    if (!cleanUsername || !cleanPassword) {
-      setErrorMsg('Username dan Password wajib diisi.');
+    if (!cleanIdentifier || !cleanPassword) {
+      setErrorMsg('Username / Email dan Password wajib diisi.');
       return;
     }
 
-    // 1. Check local state first
-    let activeUsersList = users;
-    let foundUser = activeUsersList.find(
-      (u) => u.username.trim().toLowerCase() === cleanUsername
-    );
+    setIsCheckingCloud(true);
+    let foundUser: AppUser | null = null;
+    let fetchedUserList: AppUser[] | null = null;
 
-    // 2. If not found in local state, fetch latest from Cloud Firestore
-    if (!foundUser) {
-      setIsCheckingCloud(true);
-      try {
-        const cloudUsers = await loadFromCloud<AppUser[]>('yp_erp_users');
-        if (cloudUsers && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
-          activeUsersList = cloudUsers;
-          if (onUpdateUsersList) {
-            onUpdateUsersList(cloudUsers);
-          }
-          foundUser = activeUsersList.find(
-            (u) => u.username.trim().toLowerCase() === cleanUsername
-          );
-        }
-      } catch (err) {
-        console.error('Error checking cloud users during login:', err);
-      } finally {
-        setIsCheckingCloud(false);
+    try {
+      // 1. Primary Source: Fetch user directly from Supabase "users" table
+      foundUser = await verifyUserLoginFromSupabase(cleanIdentifier);
+
+      // 2. Fetch full user list from Supabase / Cloud to keep app state synced
+      fetchedUserList = await fetchUsersFromSupabase();
+      if (!fetchedUserList) {
+        fetchedUserList = await loadFromCloud<AppUser[]>('yp_erp_users');
       }
+
+      if (fetchedUserList && Array.isArray(fetchedUserList) && fetchedUserList.length > 0) {
+        if (onUpdateUsersList) {
+          onUpdateUsersList(fetchedUserList);
+        }
+        if (!foundUser) {
+          foundUser = fetchedUserList.find(
+            (u) =>
+              u.username.trim().toLowerCase() === cleanIdentifier ||
+              (u.email && u.email.trim().toLowerCase() === cleanIdentifier)
+          ) || null;
+        }
+      }
+    } catch (err) {
+      console.warn('Network or cloud fetch notice during login, checking local cache:', err);
+    } finally {
+      setIsCheckingCloud(false);
+    }
+
+    // 3. Fallback: Check local cache if cloud returned nothing (Offline Mode)
+    if (!foundUser) {
+      foundUser = users.find(
+        (u) =>
+          u.username.trim().toLowerCase() === cleanIdentifier ||
+          (u.email && u.email.trim().toLowerCase() === cleanIdentifier)
+      ) || null;
     }
 
     if (!foundUser) {
-      setErrorMsg(`Username "${username}" tidak terdaftar dalam Sistem Akses User ERP. Hubungi Administrator.`);
+      setErrorMsg(`Username/Email "${username}" tidak terdaftar dalam Sistem Supabase / Database ERP. Hubungi Administrator.`);
       return;
     }
 

@@ -49,6 +49,11 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [marketingAgent, setMarketingAgent] = useState(currentUser?.name ? `${currentUser.name} (${currentUser.role})` : 'Rian Prasetya (Inhouse Yusuf Property)');
   const [notes, setNotes] = useState('Berkas persyaratan KPR telah diverifikasi & dicetak SPR oleh Sales');
 
+  // Backdate Option States
+  const [isBackdate, setIsBackdate] = useState<boolean>(false);
+  const [backdateDate, setBackdateDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [backdateNotes, setBackdateNotes] = useState<string>('');
+
   // Handle unit change
   const handleUnitChange = (id: string) => {
     setSelectedUnitId(id);
@@ -98,6 +103,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     const userAuditInfo = currentUser
       ? `${currentUser.name} (${currentUser.role})`
       : 'User Login System';
+    const txDate = isBackdate ? backdateDate : new Date().toISOString().split('T')[0];
 
     const newSales: SalesTransaction = {
       id: `sale-${Date.now()}`,
@@ -116,7 +122,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         monthlyIncome: income,
       },
       marketingAgent,
-      transactionDate: new Date().toISOString().split('T')[0],
+      transactionDate: txDate,
       paymentType,
       agreedPrice,
       bookingFeePaid,
@@ -125,7 +131,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       kprBank: paymentType === 'kpr' ? kprBank : undefined,
       kprAmount: paymentType === 'kpr' ? agreedPrice - dpAmount : undefined,
       kprStatus: paymentType === 'kpr' ? 'pemberkasan' : undefined,
-      notes,
+      notes: isBackdate ? `${notes} (Backdate: ${backdateNotes})` : notes,
+      isBackdate,
+      backdateDate: isBackdate ? txDate : undefined,
+      backdateNotes: isBackdate ? backdateNotes.trim() : undefined,
       createdBy: userAuditInfo,
       createdAt: nowStr,
       updatedBy: userAuditInfo,
@@ -136,7 +145,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           user: userAuditInfo,
           oldStatus: 'Draft Baru',
           newStatus: paymentType === 'kpr' ? 'pemberkasan' : 'Cash Deal',
-          notes: `Cetak SPR Pertama oleh ${userAuditInfo}`,
+          notes: `Cetak SPR Pertama${isBackdate ? ` [BACKDATE: ${txDate} - Ket: ${backdateNotes}]` : ''} oleh ${userAuditInfo}`,
         },
       ],
     };
@@ -362,6 +371,47 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Opsi Backdate Tanggal Mundur */}
+            <div className="p-3 bg-purple-50/80 rounded-xl border border-purple-200/80 space-y-2 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-purple-950">
+                <input
+                  type="checkbox"
+                  checked={isBackdate}
+                  onChange={(e) => setIsBackdate(e.target.checked)}
+                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                />
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-purple-600" />
+                  Atur Transaksi SPR sebagai Backdate (Tanggal Mundur)
+                </span>
+              </label>
+              {isBackdate && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-150">
+                  <div>
+                    <label className="font-bold text-purple-900 block mb-1 text-[11px]">Tanggal Mundur *</label>
+                    <input
+                      type="date"
+                      required={isBackdate}
+                      value={backdateDate}
+                      onChange={(e) => setBackdateDate(e.target.value)}
+                      className="w-full p-2 bg-white border border-purple-300 rounded-lg font-bold text-purple-900 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-purple-900 block mb-1 text-[11px]">Keterangan & Alasan Backdate *</label>
+                    <input
+                      type="text"
+                      required={isBackdate}
+                      placeholder="Contoh: Penginputan kuitansi susulan akad KPR bulan lalu"
+                      value={backdateNotes}
+                      onChange={(e) => setBackdateNotes(e.target.value)}
+                      className="w-full p-2 bg-white border border-purple-300 rounded-lg font-medium text-slate-900 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           </div>

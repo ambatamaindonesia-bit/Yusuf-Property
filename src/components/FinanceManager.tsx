@@ -59,6 +59,11 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   const [payerName, setPayerName] = useState('');
   const [payerRelationship, setPayerRelationship] = useState('Konsumen Langsung (Pribadi)');
 
+  // Backdate options for New Record Form
+  const [isBackdate, setIsBackdate] = useState<boolean>(false);
+  const [backdateDate, setBackdateDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [backdateReason, setBackdateReason] = useState<string>('');
+
   // Active (non-deleted) records for calculation
   const activeFinances = useMemo(() => finances.filter((f) => !f.isDeleted), [finances]);
 
@@ -166,19 +171,23 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     const recordedBy = currentUser?.name || 'Admin Keuangan Yusuf Property';
     const nowStr = new Date().toLocaleString('id-ID');
+    const finalDate = isBackdate ? backdateDate : new Date().toISOString().split('T')[0];
 
     const initialAuditLog: TransactionAuditLog = {
       id: `log-${Date.now()}`,
       timestamp: nowStr,
       action: 'CREATE',
       user: recordedBy,
-      reason: 'Pencatatan awal transaksi kas baru',
-      changesSummary: `Penambahan transaksi nominal ${formatRupiah(amount)}`,
+      reason: isBackdate ? `Pencatatan Backdate (${finalDate}): ${backdateReason || 'Entri transaksi tanggal mundur'}` : 'Pencatatan awal transaksi kas baru',
+      changesSummary: `Penambahan transaksi nominal ${formatRupiah(amount)}${isBackdate ? ` [BACKDATE: ${finalDate}]` : ''}`,
+      isBackdate: isBackdate,
+      backdateDate: isBackdate ? finalDate : undefined,
+      backdateReason: isBackdate ? backdateReason : undefined,
     };
 
     const newRecord: FinancialRecord = {
       id: `fin-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: finalDate,
       type,
       category,
       title,
@@ -190,6 +199,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       payerRelationship,
       refNumber: `TRF/YP/${Date.now().toString().slice(-4)}`,
       recordedBy,
+      isBackdate,
+      backdateDate: isBackdate ? finalDate : undefined,
+      backdateReason: isBackdate ? backdateReason.trim() : undefined,
       auditLogs: [initialAuditLog],
     };
 
@@ -197,11 +209,18 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     setShowAddModal(false);
     setTitle('');
     setPayerName('');
+    setIsBackdate(false);
+    setBackdateReason('');
   };
 
   // Open Edit Modal
   const handleOpenEdit = (rec: FinancialRecord) => {
-    setEditingRecord({ ...rec });
+    setEditingRecord({
+      ...rec,
+      isBackdate: rec.isBackdate || false,
+      backdateDate: rec.backdateDate || rec.date,
+      backdateReason: rec.backdateReason || '',
+    });
     setEditReason('');
   };
 
@@ -216,10 +235,17 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     // Find original
     const original = finances.find((f) => f.id === editingRecord.id);
     let summaryText = 'Pembaruan data transaksi';
+    const dateChanged = original && original.date !== editingRecord.date;
+    const backdateNotice = editingRecord.isBackdate ? ` [BACKDATE: ${editingRecord.date}]` : '';
+
     if (original && original.amount !== editingRecord.amount) {
-      summaryText = `Nominal diubah dari ${formatRupiah(original.amount)} menjadi ${formatRupiah(editingRecord.amount)}`;
+      summaryText = `Nominal diubah dari ${formatRupiah(original.amount)} menjadi ${formatRupiah(editingRecord.amount)}${backdateNotice}`;
+    } else if (dateChanged) {
+      summaryText = `Tanggal transaksi diubah dari ${original.date} menjadi ${editingRecord.date}${backdateNotice}`;
     } else if (original && original.title !== editingRecord.title) {
-      summaryText = `Keterangan diubah dari "${original.title}" menjadi "${editingRecord.title}"`;
+      summaryText = `Keterangan diubah dari "${original.title}" menjadi "${editingRecord.title}"${backdateNotice}`;
+    } else if (editingRecord.isBackdate) {
+      summaryText = `Pembaruan data & status backdate (${editingRecord.date})`;
     }
 
     const newAuditLog: TransactionAuditLog = {
@@ -229,6 +255,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       user: userName,
       reason: editReason.trim(),
       changesSummary: summaryText,
+      isBackdate: editingRecord.isBackdate,
+      backdateDate: editingRecord.date,
+      backdateReason: editingRecord.backdateReason,
     };
 
     const updatedAuditLogs = original?.auditLogs
@@ -237,6 +266,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     const updatedRecord: FinancialRecord = {
       ...editingRecord,
+      backdateDate: editingRecord.isBackdate ? editingRecord.date : undefined,
       auditLogs: updatedAuditLogs,
     };
 
@@ -519,6 +549,16 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                   >
                     <td className="p-3 font-semibold text-slate-900">
                       <div>{formatDate(f.date)}</div>
+                      {f.isBackdate && (
+                        <div className="mt-0.5">
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-900 font-extrabold text-[9px] rounded border border-purple-300"
+                            title={`Keterangan Backdate: ${f.backdateReason || 'Entri Tanggal Mundur'}`}
+                          >
+                            <Calendar className="w-2.5 h-2.5 text-purple-700 shrink-0" /> BACKDATE
+                          </span>
+                        </div>
+                      )}
                       <div className="text-[10px] text-slate-400 font-normal">{f.refNumber}</div>
                     </td>
 
@@ -531,6 +571,12 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                         )}
                         <span className={f.isDeleted ? 'line-through text-slate-400' : ''}>{f.title}</span>
                       </div>
+                      {f.isBackdate && f.backdateReason && (
+                        <div className="text-[10px] text-purple-700 font-semibold mt-0.5 flex items-center gap-1">
+                          <span>📌 Ket. Backdate:</span>
+                          <span className="italic">&quot;{f.backdateReason}&quot;</span>
+                        </div>
+                      )}
                       {f.isDeleted && (
                         <div className="text-[10px] text-rose-600 not-italic font-bold mt-0.5">
                           [DIHAPUS]: {f.deleteReason} (oleh {f.deletedBy})
@@ -740,6 +786,47 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                 </div>
               </div>
 
+              {/* Opsi Backdate / Tanggal Mundur */}
+              <div className="p-3 bg-purple-50/80 rounded-xl border border-purple-200 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-purple-950 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={isBackdate}
+                    onChange={(e) => setIsBackdate(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-purple-600" />
+                    Input Transaksi Tanggal Mundur (Backdate)
+                  </span>
+                </label>
+                {isBackdate && (
+                  <div className="grid grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-150">
+                    <div>
+                      <label className="font-bold text-purple-900 block mb-1 text-[11px]">Tanggal Backdate *</label>
+                      <input
+                        type="date"
+                        required={isBackdate}
+                        value={backdateDate}
+                        onChange={(e) => setBackdateDate(e.target.value)}
+                        className="w-full p-2 bg-white border border-purple-300 rounded-lg font-bold text-purple-900 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-purple-900 block mb-1 text-[11px]">Keterangan & Alasan Backdate *</label>
+                      <input
+                        type="text"
+                        required={isBackdate}
+                        placeholder="Contoh: Pencatatan kuitansi susulan bulan lalu"
+                        value={backdateReason}
+                        onChange={(e) => setBackdateReason(e.target.value)}
+                        className="w-full p-2 bg-white border border-purple-300 rounded-lg font-medium text-slate-900 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
                 <button
                   type="button"
@@ -828,6 +915,62 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                     onChange={(e) => setEditingRecord({ ...editingRecord, unitCode: e.target.value })}
                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg"
                   />
+                </div>
+              </div>
+
+              {/* Pengaturan Tanggal & Opsi Backdate Edit */}
+              <div className="p-3 bg-purple-50/80 border border-purple-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-purple-950 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={editingRecord.isBackdate || false}
+                      onChange={(e) =>
+                        setEditingRecord({
+                          ...editingRecord,
+                          isBackdate: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                    />
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-purple-600" />
+                      Status Backdate (Entri Tanggal Mundur)
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <div>
+                    <label className="font-bold text-purple-900 block mb-1 text-[11px]">Tanggal Transaksi *</label>
+                    <input
+                      type="date"
+                      required
+                      value={editingRecord.date}
+                      onChange={(e) =>
+                        setEditingRecord({
+                          ...editingRecord,
+                          date: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 bg-white border border-purple-300 rounded-lg font-bold text-purple-900 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-purple-900 block mb-1 text-[11px]">Keterangan & Detail Backdate</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Koreksi tanggal pencairan KPR BTN"
+                      value={editingRecord.backdateReason || ''}
+                      onChange={(e) =>
+                        setEditingRecord({
+                          ...editingRecord,
+                          backdateReason: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 bg-white border border-purple-300 rounded-lg font-medium text-slate-900 text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -983,6 +1126,20 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                           <div className="text-slate-700 pt-0.5">
                             <span className="font-bold text-slate-900">Alasan Tindakan:</span> &quot;{log.reason}&quot;
                           </div>
+
+                          {log.isBackdate && (
+                            <div className="text-[10px] text-purple-900 bg-purple-50 p-2 rounded-lg border border-purple-200 space-y-0.5">
+                              <p className="font-extrabold flex items-center gap-1 text-purple-900">
+                                <Calendar className="w-3 h-3 text-purple-700" />
+                                <span>Status Entri Backdate ({log.backdateDate || auditRecord.date})</span>
+                              </p>
+                              {log.backdateReason && (
+                                <p className="text-purple-800">
+                                  <strong>Keterangan Backdate:</strong> &quot;{log.backdateReason}&quot;
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           {log.changesSummary && (
                             <div className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded-lg border border-slate-100">

@@ -111,3 +111,133 @@ export function subscribeToSupabaseKey<T>(key: string, callback: (data: T) => vo
     return () => {};
   }
 }
+
+// ----------------------------------------------------
+// Specific Supabase "users" Table & Login Functions
+// ----------------------------------------------------
+
+export function mapRowToAppUser(row: any): any {
+  if (!row) return null;
+  return {
+    id: String(row.id || row.user_id || `usr-${Date.now()}`),
+    username: String(row.username || ''),
+    password: String(row.password || '123456'),
+    name: String(row.name || row.full_name || row.username || 'User'),
+    email: String(row.email || ''),
+    phone: String(row.phone || row.phone_number || ''),
+    role: row.role || 'Sales Marketing',
+    marketingType: row.marketing_type || row.marketingType || 'Inhouse',
+    agencyName: row.agency_name || row.agencyName || '',
+    status: row.status || 'Aktif',
+    notes: row.notes || '',
+    allowedTabs: typeof row.allowed_tabs === 'string'
+      ? (() => { try { return JSON.parse(row.allowed_tabs); } catch (e) { return []; } })()
+      : (Array.isArray(row.allowed_tabs) ? row.allowed_tabs : (Array.isArray(row.allowedTabs) ? row.allowedTabs : []))
+  };
+}
+
+export function mapAppUserToRow(user: any): any {
+  return {
+    id: user.id,
+    username: user.username,
+    password: user.password || '123456',
+    name: user.name,
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.role,
+    marketing_type: user.marketingType,
+    agency_name: user.agencyName || null,
+    status: user.status,
+    notes: user.notes || null,
+    allowed_tabs: JSON.stringify(user.allowedTabs || []),
+    updated_at: new Date().toISOString()
+  };
+}
+
+/**
+ * Save user list directly to Supabase "users" table & "erp_data" key
+ */
+export async function saveUsersToSupabase(users: any[]): Promise<boolean> {
+  const client = getSupabaseClient();
+  
+  // 1. Always save to erp_data document in Supabase
+  await saveToSupabase('yp_erp_users', users);
+
+  if (!client) return false;
+
+  // 2. Also upsert into dedicated "users" table in Supabase
+  try {
+    const rows = users.map(mapAppUserToRow);
+    const { error } = await client.from('users').upsert(rows, { onConflict: 'id' });
+    if (error) {
+      console.warn('Notice upserting to Supabase "users" table (using erp_data fallback):', error.message);
+    } else {
+      console.log('Successfully saved user data to Supabase "users" table.');
+    }
+  } catch (err) {
+    console.warn('Supabase "users" table write notice:', err);
+  }
+
+  return true;
+}
+
+/**
+ * Fetch all users directly from Supabase "users" table or "erp_data" fallback
+ */
+export async function fetchUsersFromSupabase(): Promise<any[] | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  // Try fetching directly from "users" table in Supabase
+  try {
+    const { data, error } = await client.from('users').select('*');
+    if (!error && data && data.length > 0) {
+      console.log(`Fetched ${data.length} user records from Supabase "users" table.`);
+      return data.map(mapRowToAppUser);
+    }
+  } catch (err) {
+    console.warn('Could not read from Supabase "users" table, attempting key fallback:', err);
+  }
+
+  // Fallback to "erp_data" table in Supabase
+  return loadFromSupabase<any[]>('yp_erp_users');
+}
+
+/**
+ * Directly query Supabase "users" table for username or email for Login verification
+ */
+export async function verifyUserLoginFromSupabase(identifier: string): Promise<any | null> {
+  const client = getSupabaseClient();
+  const cleanId = identifier.trim().toLowerCase();
+  if (!cleanId) return null;
+
+  if (client) {
+    try {
+      // Query "users" table in Supabase
+      const { data, error } = await client
+        .from('users')
+        .select('*')
+        .or(`username.ilike.${cleanId},email.ilike.${cleanId}`);
+
+      if (!error && data && data.length > 0) {
+        return mapRowToAppUser(data[0]);
+      }
+    } catch (err) {
+      console.warn('Error querying Supabase "users" table directly during login:', err);
+    }
+  }
+
+  // Fallback: fetch user list from Supabase/Cloud
+  const cloudUsers = await fetchUsersFromSupabase();
+  if (cloudUsers && Array.isArray(cloudUsers)) {
+    const found = cloudUsers.find(
+      (u) =>
+        (u.username && u.username.trim().toLowerCase() === cleanId) ||
+        (u.email && u.email.trim().toLowerCase() === cleanId)
+    );
+    if (found) return found;
+  }
+
+  return null;
+}
+
