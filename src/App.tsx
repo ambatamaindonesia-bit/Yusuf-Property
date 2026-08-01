@@ -162,14 +162,34 @@ export default function App() {
     try {
       await migrateLocalStorageToIndexedDB();
 
-      // Helper to pick first non-empty valid array
-      const pickValidArray = <T,>(...sources: (T[] | null | undefined)[]): T[] | null => {
+      // Helper to merge user lists across sources so no added user is lost
+      const mergeUserLists = (...sources: (AppUser[] | null | undefined)[]): AppUser[] | null => {
+        const map = new Map<string, AppUser>();
         for (const src of sources) {
-          if (src && Array.isArray(src) && src.length > 0) {
-            return src;
+          if (src && Array.isArray(src)) {
+            for (const u of src) {
+              if (!u) continue;
+              const key = (u.username ? u.username.trim().toLowerCase() : '') || (u.id || '');
+              if (key && !map.has(key)) {
+                map.set(key, u);
+              }
+            }
           }
         }
-        return null;
+        return map.size > 0 ? Array.from(map.values()) : null;
+      };
+
+      // Helper to pick array with the most items from available sources
+      const pickBestArray = <T,>(...sources: (T[] | null | undefined)[]): T[] | null => {
+        let best: T[] | null = null;
+        for (const src of sources) {
+          if (src && Array.isArray(src) && src.length > 0) {
+            if (!best || src.length > best.length) {
+              best = src;
+            }
+          }
+        }
+        return best;
       };
 
       // Auto-connect Supabase if configured in Cloud but not locally present
@@ -246,18 +266,18 @@ export default function App() {
         idbGet<ProspectRecord[]>('yp_erp_prospects'),
       ]);
 
-      const finalUsers = pickValidArray(supabaseUsers, cloudUsers, idbUsers);
-      const finalProjects = pickValidArray(cloudProjects, idbProjects);
-      const finalUnits = pickValidArray(cloudUnits, idbUnits);
-      const finalSales = pickValidArray(cloudSales, idbSales);
-      const finalConstruction = pickValidArray(cloudConstruction, idbConstruction);
-      const finalFinances = pickValidArray(cloudFinances, idbFinances);
-      const finalCustomers = pickValidArray(cloudCustomers, idbCustomers);
-      const finalMaterials = pickValidArray(cloudMaterials, idbMaterials);
-      const finalUsages = pickValidArray(cloudUsages, idbUsages);
-      const finalDocs = pickValidArray(cloudDocs, idbDocs);
-      const finalAttendance = pickValidArray(cloudAttendance, idbAttendance);
-      const finalProspects = pickValidArray(cloudProspects, idbProspects);
+      const finalUsers = mergeUserLists(supabaseUsers, cloudUsers, idbUsers);
+      const finalProjects = pickBestArray(cloudProjects, idbProjects);
+      const finalUnits = pickBestArray(cloudUnits, idbUnits);
+      const finalSales = pickBestArray(cloudSales, idbSales);
+      const finalConstruction = pickBestArray(cloudConstruction, idbConstruction);
+      const finalFinances = pickBestArray(cloudFinances, idbFinances);
+      const finalCustomers = pickBestArray(cloudCustomers, idbCustomers);
+      const finalMaterials = pickBestArray(cloudMaterials, idbMaterials);
+      const finalUsages = pickBestArray(cloudUsages, idbUsages);
+      const finalDocs = pickBestArray(cloudDocs, idbDocs);
+      const finalAttendance = pickBestArray(cloudAttendance, idbAttendance);
+      const finalProspects = pickBestArray(cloudProspects, idbProspects);
 
       if (finalUsers) {
         setUsers(finalUsers);
@@ -712,12 +732,12 @@ export default function App() {
     localStorage.setItem('yp_erp_finances', JSON.stringify([]));
   };
 
-  // User Management Handlers (Persisted to Supabase users table)
+  // User Management Handlers (Persisted to Supabase users table & Cloud Firestore)
   const handleAddUser = (newUser: AppUser) => {
     setUsers((prev) => {
-      const updated = [newUser, ...prev];
+      const updated = [newUser, ...prev.filter((u) => u.id !== newUser.id)];
       saveUsersToSupabase(updated);
-      saveToCloud('yp_erp_users', updated);
+      saveToCloud('yp_erp_users', updated, true);
       return updated;
     });
   };
@@ -726,7 +746,7 @@ export default function App() {
     setUsers((prev) => {
       const updated = prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
       saveUsersToSupabase(updated);
-      saveToCloud('yp_erp_users', updated);
+      saveToCloud('yp_erp_users', updated, true);
       return updated;
     });
     if (currentUser && currentUser.id === updatedUser.id) {
@@ -738,7 +758,7 @@ export default function App() {
     setUsers((prev) => {
       const updated = prev.filter((u) => u.id !== userId);
       saveUsersToSupabase(updated);
-      saveToCloud('yp_erp_users', updated);
+      saveToCloud('yp_erp_users', updated, true);
       return updated;
     });
   };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppUser } from '../types';
 import { Building2, User, Key, ArrowRight, ShieldCheck, Eye, EyeOff, Lock, RefreshCw } from 'lucide-react';
 import { loadFromCloud } from '../utils/firebase';
-import { fetchUsersFromSupabase, verifyUserLoginFromSupabase } from '../utils/supabase';
+import { fetchUsersFromSupabase, verifyUserLoginFromSupabase, isSupabaseConnected, saveSupabaseConfig } from '../utils/supabase';
 
 interface LoginScreenProps {
   users: AppUser[];
@@ -31,24 +31,56 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess,
 
     setIsCheckingCloud(true);
     let foundUser: AppUser | null = null;
-    let fetchedUserList: AppUser[] | null = null;
 
     try {
-      // 1. Primary Source: Fetch user directly from Supabase "users" table
-      foundUser = await verifyUserLoginFromSupabase(cleanIdentifier);
-
-      // 2. Fetch full user list from Supabase / Cloud to keep app state synced
-      fetchedUserList = await fetchUsersFromSupabase();
-      if (!fetchedUserList || fetchedUserList.length === 0) {
-        fetchedUserList = await loadFromCloud<AppUser[]>('yp_erp_users');
+      // 0. Auto-connect Supabase if configured in Cloud Firestore but not present locally on this device
+      if (!isSupabaseConnected()) {
+        try {
+          const cloudSupaCfg = await loadFromCloud<{ url: string; key: string }>('yp_supabase_config');
+          if (cloudSupaCfg && cloudSupaCfg.url && cloudSupaCfg.key) {
+            saveSupabaseConfig(cloudSupaCfg.url, cloudSupaCfg.key, true);
+          }
+        } catch (err) {
+          console.warn('Could not auto-fetch Supabase config during login:', err);
+        }
       }
 
-      if (fetchedUserList && Array.isArray(fetchedUserList) && fetchedUserList.length > 0) {
+      // 1. Primary Direct Verification from Supabase "users" table
+      foundUser = await verifyUserLoginFromSupabase(cleanIdentifier);
+
+      // 2. Fetch full user list from BOTH Supabase AND Cloud Firestore simultaneously
+      const [supaUsers, cloudUsers] = await Promise.all([
+        fetchUsersFromSupabase(),
+        loadFromCloud<AppUser[]>('yp_erp_users'),
+      ]);
+
+      // Merge all user records by lowercased username/email/id to ensure no newly created user is missed
+      const mergedMap = new Map<string, AppUser>();
+      
+      const addUsersToMap = (list: AppUser[] | null | undefined) => {
+        if (!list || !Array.isArray(list)) return;
+        for (const u of list) {
+          if (!u) continue;
+          const key = (u.username ? u.username.trim().toLowerCase() : '') || (u.id || '');
+          if (key && !mergedMap.has(key)) {
+            mergedMap.set(key, u);
+          }
+        }
+      };
+
+      // Order of precedence: Supabase -> Cloud Firestore -> Local Cache Users
+      addUsersToMap(supaUsers);
+      addUsersToMap(cloudUsers);
+      addUsersToMap(users);
+
+      const mergedUserList = Array.from(mergedMap.values());
+
+      if (mergedUserList.length > 0) {
         if (onUpdateUsersList) {
-          onUpdateUsersList(fetchedUserList);
+          onUpdateUsersList(mergedUserList);
         }
         if (!foundUser) {
-          foundUser = fetchedUserList.find(
+          foundUser = mergedUserList.find(
             (u) =>
               (u.username && u.username.trim().toLowerCase() === cleanIdentifier) ||
               (u.email && u.email.trim().toLowerCase() === cleanIdentifier)
@@ -65,13 +97,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess,
     if (!foundUser) {
       foundUser = users.find(
         (u) =>
-          u.username.trim().toLowerCase() === cleanIdentifier ||
+          (u.username && u.username.trim().toLowerCase() === cleanIdentifier) ||
           (u.email && u.email.trim().toLowerCase() === cleanIdentifier)
       ) || null;
     }
 
     if (!foundUser) {
-      setErrorMsg(`Username/Email "${username}" tidak terdaftar dalam Sistem Supabase / Database ERP. Hubungi Administrator.`);
+      setErrorMsg(`Username/Email "${username}" tidak terdaftar dalam Sistem Database ERP. Hubungi Administrator.`);
       return;
     }
 

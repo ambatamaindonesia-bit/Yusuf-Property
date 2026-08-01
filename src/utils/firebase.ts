@@ -3,6 +3,7 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   onSnapshot,
 } from 'firebase/firestore';
@@ -59,7 +60,39 @@ function sanitizeForFirestore(obj: any): any {
   return cleanObj;
 }
 
-export async function saveToCloud<T>(key: string, data: T): Promise<void> {
+export async function saveToCloud<T>(key: string, data: T, immediate = false): Promise<void> {
+  const executeSave = async () => {
+    // 1. Try Save to Firebase Firestore if quota not exceeded
+    if (!isFirebaseQuotaExceeded) {
+      try {
+        const docRef = doc(db, 'erp_data', key);
+        const cleanData = sanitizeForFirestore(data);
+        await setDoc(docRef, { payload: cleanData, updatedAt: new Date().toISOString() });
+      } catch (err: any) {
+        const isQuotaErr = handleFirestoreError(err, `saveToCloud(${key})`);
+        if (!isQuotaErr) {
+          console.warn(`Firebase Firestore save error for key ${key}:`, err?.message || err);
+        }
+      }
+    }
+
+    // 2. Save to Supabase
+    if (isSupabaseConnected()) {
+      try {
+        await saveToSupabase(key, data);
+      } catch (err) {
+        console.warn(`Supabase save notice for key ${key}:`, err);
+      }
+    }
+  };
+
+  if (immediate) {
+    if (writeDebounceTimers[key]) {
+      clearTimeout(writeDebounceTimers[key]);
+    }
+    return executeSave();
+  }
+
   // Clear any pending debounce timer for this key
   if (writeDebounceTimers[key]) {
     clearTimeout(writeDebounceTimers[key]);
@@ -68,47 +101,34 @@ export async function saveToCloud<T>(key: string, data: T): Promise<void> {
   // Debounce writes by 300ms
   return new Promise((resolve) => {
     writeDebounceTimers[key] = setTimeout(async () => {
-      // 1. Try Save to Firebase Firestore if quota not exceeded
-      if (!isFirebaseQuotaExceeded) {
-        try {
-          const docRef = doc(db, 'erp_data', key);
-          const cleanData = sanitizeForFirestore(data);
-          await setDoc(docRef, { payload: cleanData, updatedAt: new Date().toISOString() });
-        } catch (err: any) {
-          const isQuotaErr = handleFirestoreError(err, `saveToCloud(${key})`);
-          if (!isQuotaErr) {
-            console.warn(`Firebase Firestore save error for key ${key}:`, err?.message || err);
-          }
-        }
-      }
-
-      // 2. Save to Supabase
-      if (isSupabaseConnected()) {
-        try {
-          await saveToSupabase(key, data);
-        } catch (err) {
-          console.warn(`Supabase save notice for key ${key}:`, err);
-        }
-      }
-
+      await executeSave();
       resolve();
     }, 300);
   });
 }
 
 export async function loadFromCloud<T>(key: string): Promise<T | null> {
-  // 1. Try Firebase Firestore if quota not exceeded
+  // 1. Try Firebase Firestore directly from server first
   if (!isFirebaseQuotaExceeded) {
     try {
       const docRef = doc(db, 'erp_data', key);
-      const snap = await getDoc(docRef);
+      const snap = await getDocFromServer(docRef);
       if (snap.exists() && snap.data().payload !== undefined) {
         return snap.data().payload as T;
       }
     } catch (err: any) {
-      const isQuotaErr = handleFirestoreError(err, `loadFromCloud(${key})`);
-      if (!isQuotaErr) {
-        console.warn(`Firebase Firestore load notice for key ${key}:`, err?.message || err);
+      // Fallback to cached getDoc if getDocFromServer fails or offline
+      try {
+        const docRef = doc(db, 'erp_data', key);
+        const snap = await getDoc(docRef);
+        if (snap.exists() && snap.data().payload !== undefined) {
+          return snap.data().payload as T;
+        }
+      } catch (e: any) {
+        const isQuotaErr = handleFirestoreError(e, `loadFromCloud(${key})`);
+        if (!isQuotaErr) {
+          console.warn(`Firebase Firestore load notice for key ${key}:`, e?.message || e);
+        }
       }
     }
   }
