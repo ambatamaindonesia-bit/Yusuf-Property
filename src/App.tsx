@@ -266,7 +266,7 @@ export default function App() {
         idbGet<ProspectRecord[]>('yp_erp_prospects'),
       ]);
 
-      const finalUsers = mergeUserLists(supabaseUsers, cloudUsers, idbUsers);
+      const finalUsers = mergeUserLists(supabaseUsers, cloudUsers, idbUsers, INITIAL_USERS);
       const finalProjects = pickBestArray(cloudProjects, idbProjects);
       const finalUnits = pickBestArray(cloudUnits, idbUnits);
       const finalSales = pickBestArray(cloudSales, idbSales);
